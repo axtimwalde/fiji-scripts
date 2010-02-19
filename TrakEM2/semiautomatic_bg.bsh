@@ -1,0 +1,21 @@
+import ini.trakem2.display.*;
+import ij.*;
+import ij.process.*;
+
+p = Display.getFront().getActive();
+imp = new ImagePlus( p.getTitle(), p.getImageProcessor() );
+imp.show();
+IJ.run( "Brightness/Contrast..." );
+IJ.run( "Enhance Contrast", "saturated=0.5" );
+
+ip = imp.getProcessor();
+min = ip.getMin();
+max = ip.getMax();
+
+IJ.log( min + ", " + max );
+
+for ( p : Display.getFront().getLayer().getDisplayables( Patch.class ) )
+	p.setMinAndMax( min, max );
+
+imp.close();
+

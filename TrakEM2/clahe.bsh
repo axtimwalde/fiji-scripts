@@ -1,0 +1,1 @@
+mpicbg.ij.CLAHE.run( imp, 255, 256, 2, null );

@@ -1,0 +1,134 @@
+/**
+ * Use the center points of all tiles to define an MLS deformation from pure
+ * intra-layer registration to the globally optimal.
+ */
+
+import ij.*;
+import ij.gui.*;
+ 
+import ini.trakem2.display.*;
+import mpicbg.models.Point;
+import mpicbg.models.PointMatch;
+import mpicbg.models.AffineModel2D;
+import mpicbg.trakem2.align.AbstractAffineTile2D;
+import mpicbg.trakem2.align.Align;
+import mpicbg.trakem2.align.AlignTask;
+import mpicbg.trakem2.transform.MovingLeastSquaresTransform;
+import mpicbg.trakem2.transform.CoordinateTransform;
+import mpicbg.trakem2.transform.CoordinateTransformList;
+
+import java.awt.Rectangle;
+import java.awt.geom.AffineTransform;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Set;
+
+p = Align.paramOptimize.clone();
+
+boolean setup()
+{
+	gd = new GenericDialog( "Deform : Intra-Layer" );
+
+	p.addFields( gd );
+		
+	gd.showDialog();
+	if ( gd.wasCanceled() ) return false;
+		
+	p.readFields( gd );
+	
+	return true;
+}
+
+void run()
+{
+	if ( !setup() ) return;
+	
+	IJ.log( "deforming..." );
+		
+	/* store the center location of each single tile for later deformation */
+
+	tileCenterPoints = new HashMap();
+
+	for ( patch : Display.getFront().getLayerSet().getDisplayables( Patch.class ) )
+	{
+		c = new float[]{ ( float )patch.getWidth() / 2.0f,( float )patch.getHeight() / 2.0f };
+		affine = new AffineModel2D();
+		affine.set( patch.getAffineTransform() );
+		affine.applyInPlace( c );
+		q = new Point( c );
+		tileCenterPoints.put( patch, new PointMatch( q.clone(), q ) );
+	}
+	
+	for ( layer : Display.getFront().getLayerSet().getLayers() )
+	{
+		IJ.log( "Processing layer " + layer );
+				
+		/* align all tiles in the layer */
+				
+		patches = layer.getDisplayables( Patch.class );
+		currentLayerTiles = new ArrayList();
+		fixedTiles = new ArrayList();
+		fixedPatches = new ArrayList();
+		Align.tilesFromPatches( p, patches, fixedPatches, currentLayerTiles, fixedTiles );
+	
+		/* add a fixed tile only if there was a Patch selected */
+//		allFixedTiles.addAll( fixedTiles );
+				
+		AlignTask.alignTiles( p, currentLayerTiles, fixedTiles, false );
+				
+		/* for each independent graph do an independent transform */
+		currentLayerGraphs = AbstractAffineTile2D.identifyConnectedGraphs( currentLayerTiles );
+		for ( graph : currentLayerGraphs )
+		{
+			/* update the tile-center pointmatches */
+			matches = new ArrayList();
+			toBeDeformedTiles = new ArrayList();
+			for ( t : graph )
+			{
+				pm = tileCenterPoints.get( t.getPatch() );
+				if ( pm == null ) continue;
+			
+				pl = pm.getP1().getL();
+				pl[ 0 ] = ( float )t.getWidth() / 2.0f;
+				pl[ 1 ] = ( float )t.getHeight() / 2.0f;
+			
+				t.getModel().applyInPlace( pl );
+				matches.add( pm );
+				toBeDeformedTiles.add( t );
+			}
+					
+			for ( t : toBeDeformedTiles )
+			{
+				try
+				{
+					patch = t.getPatch();
+					pbox = patch.getCoordinateTransformBoundingBox();
+					pat = new AffineTransform();
+					pat.translate( -pbox.x, -pbox.y );
+					pat.preConcatenate( patch.getAffineTransform() );
+							
+					mpicbg.trakem2.transform.AffineModel2D toWorld = new mpicbg.trakem2.transform.AffineModel2D();
+					toWorld.set( pat );
+							
+					MovingLeastSquaresTransform mlst = Align.createMLST( matches, 1.0f );
+							
+					ctl = new CoordinateTransformList();
+					ctl.add( toWorld );
+					ctl.add( mlst );
+					ctl.add( toWorld.createInverse() );
+				
+					patch.appendCoordinateTransform( ctl );
+				
+					patch.getProject().getLoader().regenerateMipMaps( patch );
+				}
+				catch ( Exception e )
+				{
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+}
+
+run();
+

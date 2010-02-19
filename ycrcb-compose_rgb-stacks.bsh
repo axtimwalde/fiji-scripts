@@ -1,0 +1,58 @@
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+
+import ij.IJ;
+import ij.ImagePlus;
+import ij.ImageStack;
+import ij.WindowManager;
+import ij.gui.GenericDialog;
+import ij.plugin.PlugIn;
+import ij.process.ColorProcessor;
+import ini.trakem2.display.graphics.ColorYCbCrComposite;
+
+int[] ids = WindowManager.getIDList();
+String[] titles = new String[ ids.length ];
+		
+for ( int i = 0; i < ids.length; ++i )
+	titles[ i ] = WindowManager.getImage( ids[ i ] ).getTitle();
+
+GenericDialog gd = new GenericDialog( "Compose Stacks" );
+gd.addChoice( "source : ", titles,  titles[ 0 ] );
+gd.addChoice( "target : ", titles,  titles[ 1 ] );
+
+gd.showDialog();
+
+if ( gd.wasCanceled() ) return;
+
+ImagePlus impSource = WindowManager.getImage( ids[ gd.getNextChoiceIndex() ] );
+ImagePlus impTarget = WindowManager.getImage( ids[ gd.getNextChoiceIndex() ] );
+
+ImageStack sSource = impSource.getStack();
+ImageStack sTarget = impTarget.getStack();
+
+if (
+		impSource.getType() != ImagePlus.COLOR_RGB || impTarget.getType() != ImagePlus.COLOR_RGB ||
+		impSource.getNSlices() != impTarget.getNSlices() ||
+		impSource.getWidth() != impTarget.getWidth() || 
+		impSource.getHeight() != impTarget.getHeight() )
+{
+	IJ.error( "Both stacks must be RGB and of the same size." );
+	return;
+}
+
+for ( int i = 1; i <= impTarget.getNSlices(); ++i )
+{
+	BufferedImage src = sSource.getProcessor( i ).getBufferedImage();
+	BufferedImage dst = sTarget.getProcessor( i ).getBufferedImage();
+	
+	Graphics2D g = dst.createGraphics();
+	g.setComposite( ColorYCbCrComposite.getInstance( 1.0f ) );
+	
+	g.drawImage( src, 0, 0, null );
+	
+	sTarget.setPixels( new ColorProcessor( dst ).getPixels(), i );
+	impTarget.setStack( impTarget.getTitle(), sTarget );
+	impTarget.updateAndDraw();
+	
+}
+impTarget.updateAndDraw();

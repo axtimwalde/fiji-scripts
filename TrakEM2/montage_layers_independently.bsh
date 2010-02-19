@@ -1,0 +1,65 @@
+import ini.trakem2.display.*;
+import ij.*;
+import mpicbg.trakem2.align.*;
+import java.util.ArrayList;
+import ij.gui.*;
+import java.awt.geom.AffineTransform;
+
+tilesAreInPlace = false;
+largestGraphOnly = false;
+hideDisconnectedTiles = false;
+deleteDisconnectedTiles = false;
+
+Align.ParamOptimize p;
+
+firstLayer = 0;
+
+boolean setup()
+{
+	gd = new GenericDialog( "Align Tiles" );
+	Align.paramOptimize.addFields( gd );
+			
+	gd.addMessage( "Miscellaneous:" );
+	gd.addCheckbox( "tiles are rougly in place", tilesAreInPlace );
+	gd.addCheckbox( "consider largest graph only", largestGraphOnly );
+	gd.addCheckbox( "hide tiles from non-largest graph", hideDisconnectedTiles );
+	gd.addCheckbox( "delete tiles from non-largest graph", deleteDisconnectedTiles );
+			
+	gd.showDialog();
+	if ( gd.wasCanceled() ) return false;
+			
+	Align.paramOptimize.readFields( gd );
+	tilesAreInPlace = gd.getNextBoolean();
+	largestGraphOnly = gd.getNextBoolean();
+	hideDisconnectedTiles = gd.getNextBoolean();
+	deleteDisconnectedTiles = gd.getNextBoolean();
+			
+	p = Align.paramOptimize.clone();
+	return true;
+}
+
+fixedPatches = new ArrayList();
+
+if ( setup() )
+{
+	layers = Display.getFront().getLayer().getParent().getLayers();
+	for ( int i = firstLayer; i < layers.size(); ++i )
+	{
+		layer = layers.get( i );
+		AlignTask.alignPatches( p, layer.getDisplayables( Patch.class ), fixedPatches );
+		minX = Integer.MAX_VALUE;
+		minY = Integer.MAX_VALUE;
+		for ( patch : layer.getDisplayables( Patch.class ) )
+		{
+			b = patch.getBoundingBox();
+			if ( minX > b.x ) minX = b.x;
+			if ( minY > b.y ) minY = b.y;
+		}
+		for ( patch : layer.getDisplayables( Patch.class ) )
+		{
+			at = patch.getAffineTransform();
+			at.translate( -minX, -minY );
+		}
+		Display.repaint();
+	}
+}

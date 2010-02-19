@@ -1,0 +1,4 @@
+import ini.trakem2.display.*;
+
+Display.getFront().getProject().setReceivesInput(true);
+

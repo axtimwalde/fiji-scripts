@@ -1,0 +1,13 @@
+import ini.trakem2.display.*;
+import ij.*;
+import ij.process.*;
+
+ip = IJ.getImage().getProcessor();
+min = ip.getMin();
+max = ip.getMax();
+
+IJ.log( min + ", " + max );
+
+for ( p : Display.getFront().getLayer().getDisplayables( Patch.class ) )
+	p.setMinAndMax( min, max );
+

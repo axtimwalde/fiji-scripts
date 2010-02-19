@@ -1,0 +1,58 @@
+import java.util.concurrent.atomic.AtomicInteger;
+import ini.trakem2.display.Display;
+import ini.trakem2.display.Patch;
+import java.util.List;
+import java.util.ArrayList;
+import ij.IJ;
+
+class UpdateMipmapsThread extends Thread
+{
+	List patches;
+	AtomicInteger ai;
+		
+	UpdateMipmapsThread( List patches, AtomicInteger ai )
+	{
+		this.patches = patches;
+		this.ai = ai;
+	}
+	
+	void run()
+	{
+		for ( int i = ai.getAndIncrement(); i < patches.size() && !isInterrupted(); i = ai.getAndIncrement() )
+		{
+			Patch patch = patches.get( i );
+			if ( i % 32 == 0 )
+			{
+				IJ.log( "Releasing cache" );
+				patch.getProject().getLoader().releaseAll();
+			}
+			IJ.log( "Updating patch \"" + patch.getTitle() + "\"." );
+			patch.updateMipMaps().get();
+			
+			IJ.showProgress( i, patches.size() );
+		}
+	}
+}
+
+layers = Display.getFront().getSelection().getLayer().getParent().getLayers();
+patches = new ArrayList();
+for ( int i = 212; i < layers.size(); ++i )
+	patches.addAll( layers.get( i ).getDisplayables( Patch.class ) );
+
+AtomicInteger ai = new AtomicInteger( 0 );
+List threads = new ArrayList();
+for ( int i = 0; i < 8; ++i )
+{
+	UpdateMipmapsThread thread = new UpdateMipmapsThread( patches, ai );
+	threads.add( thread );
+	thread.start();
+}
+try
+{
+	for ( Thread thread : threads )
+		thread.join();
+}
+catch ( InterruptedException e )
+{
+	IJ.log( "Updating mipmaps failed.\n" + e.getMessage() + "\n" + e.getStackTrace() );
+}
