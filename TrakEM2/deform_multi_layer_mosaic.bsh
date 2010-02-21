@@ -74,7 +74,7 @@ void run()
 		/* add a fixed tile only if there was a Patch selected */
 //		allFixedTiles.addAll( fixedTiles );
 				
-		AlignTask.alignTiles( p, currentLayerTiles, fixedTiles, false );
+		AlignTask.alignTiles( p, currentLayerTiles, fixedTiles, true, false );
 				
 		/* for each independent graph do an independent transform */
 		currentLayerGraphs = AbstractAffineTile2D.identifyConnectedGraphs( currentLayerTiles );
