@@ -1,0 +1,16 @@
+import ij.IJ;
+import ij.ImagePlus;
+import ij.gui.Roi;
+import ij.process.ImageProcessor;
+import ij.process.Blitter;
+
+try
+{
+	ImagePlus bg = new ImagePlus( patch.getProject().getLoader().getStorageFolder() + "/bg.tif" );
+	imp.getProcessor().copyBits( bg.getProcessor(), 0, 0, Blitter.SUBTRACT );
+}
+catch ( Exception e )
+{
+	IJ.log( e.toString() );
+}
+
