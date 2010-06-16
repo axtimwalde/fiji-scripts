@@ -1,0 +1,55 @@
+import ij.*;
+import ij.process.*;
+
+/**
+ *
+ */
+float mean( FloatProcessor source, int first, int last )
+{
+	double sum = 0;
+	
+	for ( int i = first; i < last; ++i )
+		sum += source.getf( i );
+	
+	return ( float )( sum / ( last - first ) );
+}
+
+/**
+ * source and target are assumed to have identical dimensions.
+ */
+void integrateRow( FloatProcessor source, FloatProcessor target, int row )
+{
+	final int first = row * source.getWidth();
+	final int last = first + source.getWidth();
+	
+	final float dxMean = mean( source, first, last );
+	
+	/* integrate */
+	double x = 0;
+	double xMean = 0;
+	for ( int i = first; i < last; ++i )
+	{
+		final float dx = source.getf( i );
+		x += dx - dxMean;
+		target.setf( i, ( float )x );
+		xMean += x;
+	}
+	xMean /= last - first;
+	
+	/* normalize */
+	for ( int i = first; i < last; ++i )
+		target.setf( i, target.getf( i ) - ( float )xMean );	
+}
+
+ImagePlus impSource = IJ.getImage();
+FloatProcessor source = impSource.getProcessor().convertToFloat();
+FloatProcessor target = new FloatProcessor( source.getWidth(), source.getHeight() );
+ImagePlus impTarget = new ImagePlus( "I " + impSource.getTitle(), target );
+impTarget.show();
+
+for ( int i = 0; i < source.getHeight(); ++i )
+{
+	integrateRow( source, target, i );
+	impTarget.updateAndDraw();	
+}
+
