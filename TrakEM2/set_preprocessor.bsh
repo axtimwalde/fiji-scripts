@@ -1,0 +1,8 @@
+import ij.*;
+import ini.trakem2.display.*;
+
+for ( p : Display.getFront().getLayerSet().getDisplayables( Patch.class ) )
+{
+	IJ.log( p.getTitle() );
+	Display.getFront().getProject().getLoader().setPreprocessorScriptPath( p, "/home/saalfeld/mnt/fileserver-em/EM/Michi/Hartenstein/p20/pp_clahe.bsh" );
+}

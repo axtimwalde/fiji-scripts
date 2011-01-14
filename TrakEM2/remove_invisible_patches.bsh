@@ -1,0 +1,15 @@
+import ini.trakem2.display.*;
+import ij.*;
+import java.util.*;
+
+selection = Display.getFront().getSelection();
+selection.clear();
+
+for ( p : Display.getFront().getLayerSet().getDisplayables( Patch.class ) )
+{
+	if ( !p.isVisible() )
+		selection.add( p );
+}
+
+selection.deleteAll();
+

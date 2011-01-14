@@ -1,0 +1,30 @@
+import ij.*;
+import ij.process.*;
+
+stack = IJ.getImage().getStack();
+ip = IJ.getImage().getProcessor().createProcessor( stack.getWidth(), stack.getHeight() );
+imp = new ImagePlus( "masked mean", ip );
+imp.show();
+
+for ( x = 0; x < stack.getWidth(); ++x )
+{
+	for ( y = 0; y < stack.getHeight(); ++y )
+	{
+		double s = 0;
+		int n = 0;
+		for ( z = 0; z < stack.getSize(); ++z )
+		{
+			float v = stack.getProcessor( z + 1 ).getf( x, y );
+			if ( v > 0 )
+			{
+				s += v;
+				++n;
+			}
+		}
+		if ( n > 0 )
+		s /= n;
+		ip.set( x, y, ( int )Math.round( s ) );
+	}
+	imp.updateAndDraw();
+}
+

@@ -1,0 +1,5 @@
+import ini.trakem2.display.*;
+
+for ( p : Display.getFront().getSelection().getSelected() )
+	p.setCoordinateTransform( ct );
+

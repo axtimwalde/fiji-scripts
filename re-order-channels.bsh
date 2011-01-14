@@ -1,0 +1,25 @@
+import ij.*;
+
+imp = IJ.getImage();
+
+nFrames = imp.getNFrames();
+nChannels = imp.getNChannels();
+nSlices = imp.getNSlices();
+
+newStack = new ImageStack( imp.getWidth(), imp.getHeight() );
+
+for ( f = 1; f <= nFrames; ++f )
+{
+	i1 = imp.getStackIndex( 1, 1, f );
+	i2 = imp.getStackIndex( 2, 1, f );
+	i3 = imp.getStackIndex( 3, 1, f );
+
+	newStack.addSlice( "", imp.getStack().getProcessor( i3 ) );
+	newStack.addSlice( "", imp.getStack().getProcessor( i1 ) );
+	newStack.addSlice( "", imp.getStack().getProcessor( i2 ) );
+}
+
+imp.setStack( newStack );
+
+imp.updateAndDraw();
+

@@ -1,0 +1,70 @@
+import ij.IJ;
+import ij.ImagePlus;
+import ij.gui.Roi;
+import ij.process.ImageProcessor;
+import ij.plugin.filter.GaussianBlur;
+
+int w = 6;
+
+/**
+ * Smooth with a Gaussian kernel that represents downsampling at a given
+ * scale factor and sourceSigma.
+ */
+void smoothForScale(
+	ImageProcessor source,
+	float scale,
+	float sourceSigma,
+	float targetSigma )
+{
+	if ( scale >= 1.0f ) return;
+	float s = targetSigma / scale;
+	float sigma = ( float )Math.sqrt( s * s - sourceSigma * sourceSigma );
+	new GaussianBlur().blurGaussian( source, sigma, sigma, 0.01 );
+}
+
+
+/**
+ * Create a downsampled ImageProcessor.
+ * 
+ * @param source the source image
+ * @param scale scaling factor
+ * @param sourceSigma the Gaussian at which the source was sampled (guess 0.5 if you do not know)
+ * @param targetSigma the Gaussian at which the target will be sampled
+ * 
+ * @return a new {@link FloatProcessor}
+ */
+ImageProcessor createDownsampled(
+		ImageProcessor source,
+		float scale,
+		float sourceSigma,
+		float targetSigma )
+{
+	int ow = source.getWidth();
+	int oh = source.getHeight();
+	int w = Math.round( ow * scale );
+	int h = Math.round( oh * scale );
+	int l = Math.max( w, h );
+
+	System.out.println( w + ", " + h );
+		
+	ImageProcessor temp = source.duplicate();
+	if ( scale >= 1.0f ) return temp;
+		
+	smoothForScale( temp, scale, sourceSigma, targetSigma );
+	
+	return temp.resize( w, h );
+}
+
+if ( imp.getWidth() > 1024 )
+imp.setProcessor( imp.getTitle(), createDownsampled( imp.getProcessor(), 1024.0f / imp.getWidth(), 0.5f, 0.5f ) );
+
+imp.setRoi( new Roi( w, w, imp.getWidth() - 2 * w, imp.getHeight() - 2 * w ) );
+try
+{
+	imp.setProcessor( imp.getTitle(), imp.getProcessor().crop() );
+}
+catch ( Exception e )
+{
+	IJ.log( e.toString() );
+}
+
