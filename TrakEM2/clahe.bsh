@@ -1,1 +1,1 @@
-mpicbg.ij.CLAHE.run( imp, 255, 256, 2, null );
+mpicbg.ij.clahe.Flat.getFastInstance().run( imp, 250, 256, 4, null, false );

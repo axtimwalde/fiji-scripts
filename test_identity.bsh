@@ -1,0 +1,229 @@
+import ij.*;
+import ij.gui.*;
+import mpicbg.ij.util.*;
+import mpicbg.models.*;
+import mpicbg.ij.*;
+import mpicbg.imagefeatures.*;
+import java.util.*;
+
+class MyParam
+{	
+	public FloatArray2DSIFT.Param sift = new FloatArray2DSIFT.Param();
+	
+	/**
+	 * Closest/next closest neighbour distance ratio
+	 */
+	public float rod = 0.92f;
+	
+	/**
+	 * Maximal allowed alignment error in px
+	 */
+	public float maxEpsilon = 25.0f;
+	
+	/**
+	 * Inlier/candidates ratio
+	 */
+	public float minInlierRatio = 0.05f;
+	
+	/**
+	 * Implemeted transformation models for choice
+	 */
+	static public String[] modelStrings = new String[]{ "Translation", "Rigid", "Similarity", "Affine" };
+	public int modelIndex = 1;
+	
+	/**
+	 * Ignore identity transform up to a given tolerance
+	 */
+	public boolean rejectIdentity = false;
+	public float identityTolerance = 0.5f;
+}
+
+run( p, imp1, imp2 )
+{
+	sift = new FloatArray2DSIFT( p.sift );
+	ijSIFT = new SIFT( sift );
+	
+	fs1 = new ArrayList();
+	fs2 = new ArrayList();
+		
+	start_time = System.currentTimeMillis();
+	IJ.log( "Processing SIFT ..." );
+	ijSIFT.extractFeatures( imp1.getProcessor(), fs1 );
+	IJ.log( " took " + ( System.currentTimeMillis() - start_time ) + "ms." );
+	IJ.log( fs1.size() + " features extracted." );
+		
+	start_time = System.currentTimeMillis();
+	IJ.log( "Processing SIFT ..." );
+	ijSIFT.extractFeatures( imp2.getProcessor(), fs2 );
+	IJ.log( " took " + ( System.currentTimeMillis() - start_time ) + "ms." );
+	IJ.log( fs2.size() + " features extracted." );
+		
+	start_time = System.currentTimeMillis();
+	IJ.log( "Identifying correspondence candidates using brute force ..." );
+	candidates = new ArrayList();
+	FeatureTransform.matchFeatures( fs1, fs2, candidates, p.rod );
+	IJ.log( " took " + ( System.currentTimeMillis() - start_time ) + "ms." );	
+	IJ.log( candidates.size() + " potentially corresponding features identified." );
+	
+	start_time = System.currentTimeMillis();
+	IJ.log( "Filtering correspondence candidates by geometric consensus ..." );
+	inliers = new ArrayList();
+		
+	model;
+	switch ( p.modelIndex )
+	{
+	case 0:
+		model = new TranslationModel2D();
+		break;
+	case 1:
+		model = new RigidModel2D();
+		break;
+	case 2:
+		model = new SimilarityModel2D();
+		break;
+	case 3:
+		model = new AffineModel2D();
+		break;
+	default:
+		return;
+	}
+	
+	boolean modelFound;
+	boolean again = false;
+	try
+	{
+		do
+		{
+			again = false;
+			modelFound = model.filterRansac(
+					candidates,
+					inliers,
+					1000,
+					p.maxEpsilon,
+					p.minInlierRatio );
+			if ( modelFound && p.rejectIdentity )
+			{
+				points = new ArrayList();
+				PointMatch.sourcePoints( inliers, points );
+				if ( Transforms.isIdentity( model, points, p.identityTolerance ) )
+				{
+					IJ.log( "Identity transform for " + inliers.size() + " matches rejected." );
+					candidates.removeAll( inliers );
+					inliers.clear();
+					again = true;
+				}
+			}
+		}
+		while ( again );
+	}
+	catch ( NotEnoughDataPointsException e )
+	{
+		modelFound = false;
+	}
+	
+	IJ.log( " took " + ( System.currentTimeMillis() - start_time ) + "ms." );
+	
+	if ( modelFound )
+	{
+		int[] x1 = new int[ inliers.size() ];
+		int[] y1 = new int[ inliers.size() ];
+		int[] x2 = new int[ inliers.size() ];
+		int[] y2 = new int[ inliers.size() ];
+		
+		int i = 0;
+		
+		for ( PointMatch m : inliers )
+		{
+			float[] m_p1 = m.getP1().getL(); 
+			float[] m_p2 = m.getP2().getL();
+			
+			x1[ i ] = Math.round( m_p1[ 0 ] );
+			y1[ i ] = Math.round( m_p1[ 1 ] );
+			x2[ i ] = Math.round( m_p2[ 0 ] );
+			y2[ i ] = Math.round( m_p2[ 1 ] );
+			
+			++i;
+		}
+	
+		PointRoi pr1 = new PointRoi( x1, y1, inliers.size() );
+		PointRoi pr2 = new PointRoi( x2, y2, inliers.size() );
+		
+		imp1.setRoi( pr1 );
+		imp2.setRoi( pr2 );		
+	
+		IJ.log( inliers.size() + " corresponding features with an average displacement of " + model.getCost() + "px identified." );
+		IJ.log( "Estimated transformation model: " + model );
+	}
+	else
+	{
+		IJ.log( "No correspondences found." );
+	}			
+}
+
+
+p = new MyParam();
+
+
+/* SIFT match tow images */
+
+ids = WindowManager.getIDList();
+if ( ids != null && ids.length >= 2 )
+{
+	titles = new String[ ids.length ];
+	for ( i = 0; i < ids.length; ++i )
+		titles[ i ] = ( WindowManager.getImage( ids[ i ] ) ).getTitle();
+		
+	gd = new GenericDialog( "Extract SIFT Landmark Correspondences" );
+		
+	gd.addMessage( "Image Selection:" );
+	current = WindowManager.getCurrentImage().getTitle();
+	gd.addChoice( "source_image", titles, current );
+	gd.addChoice( "target_image", titles, current.equals( titles[ 0 ] ) ? titles[ 1 ] : titles[ 0 ] );
+		
+	gd.addMessage( "Scale Invariant Interest Point Detector:" );
+	gd.addNumericField( "initial_gaussian_blur :", p.sift.initialSigma, 2, 6, "px" );
+	gd.addNumericField( "steps_per_scale_octave :", p.sift.steps, 0 );
+	gd.addNumericField( "minimum_image_size :", p.sift.minOctaveSize, 0, 6, "px" );
+	gd.addNumericField( "maximum_image_size :", p.sift.maxOctaveSize, 0, 6, "px" );
+		
+	gd.addMessage( "Feature Descriptor:" );
+	gd.addNumericField( "feature_descriptor_size :", p.sift.fdSize, 0 );
+	gd.addNumericField( "feature_descriptor_orientation_bins :", p.sift.fdBins, 0 );
+	gd.addNumericField( "closest/next_closest_ratio :", p.rod, 2 );
+		
+	gd.addMessage( "Geometric Consensus Filter:" );
+	gd.addNumericField( "maximal_alignment_error :", p.maxEpsilon, 2, 6, "px" );
+	gd.addNumericField( "inlier_ratio :", p.minInlierRatio, 2 );
+	gd.addChoice( "expected_transformation :", MyParam.modelStrings, MyParam.modelStrings[ p.modelIndex ] );
+	gd.addCheckbox( "ignore constant background", p.rejectIdentity );
+	gd.addNumericField( "tolerance :", p.identityTolerance, 2, 6, "px" );
+			
+	gd.showDialog();
+		
+	if ( !gd.wasCanceled() )
+	{	
+		imp1 = WindowManager.getImage( ids[ gd.getNextChoiceIndex() ] );
+		imp2 = WindowManager.getImage( ids[ gd.getNextChoiceIndex() ] );
+		
+		p.sift.initialSigma = ( float )gd.getNextNumber();
+		p.sift.steps = ( int )gd.getNextNumber();
+		p.sift.minOctaveSize = ( int )gd.getNextNumber();
+		p.sift.maxOctaveSize = ( int )gd.getNextNumber();
+		
+		p.sift.fdSize = ( int )gd.getNextNumber();
+		p.sift.fdBins = ( int )gd.getNextNumber();
+		p.rod = ( float )gd.getNextNumber();
+		
+		p.maxEpsilon = ( float )gd.getNextNumber();
+		p.minInlierRatio = ( float )gd.getNextNumber();
+		p.modelIndex = gd.getNextChoiceIndex();
+		p.rejectIdentity = gd.getNextBoolean();
+		p.identityTolerance = ( float )gd.getNextNumber();
+
+		run( p, imp1, imp2 );
+	}
+}
+else
+	IJ.showMessage( "You should have at least two images open." );
+
+

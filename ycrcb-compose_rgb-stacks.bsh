@@ -1,3 +1,15 @@
+/**
+ * Compose two RGB image series as a YCbCr merge.
+ *
+ * The result has the luminance of series `target' and the
+ * Cb and Cr channels of `source'.  That looks like using the `color' of
+ * `source' over `target' but is not exactly that because Cb and Cr still
+ * carry some luminance information.  That is, color over black or white will
+ * not be black or white but visible color.
+ *
+ * @author Stephan Saalfeld <saalfeld@mpi-cbg.de>
+ *
+ */
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
@@ -32,7 +44,7 @@ ImageStack sTarget = impTarget.getStack();
 
 if (
 		impSource.getType() != ImagePlus.COLOR_RGB || impTarget.getType() != ImagePlus.COLOR_RGB ||
-		impSource.getNSlices() != impTarget.getNSlices() ||
+		impSource.getImageStackSize() != impTarget.getImageStackSize() ||
 		impSource.getWidth() != impTarget.getWidth() || 
 		impSource.getHeight() != impTarget.getHeight() )
 {
@@ -40,8 +52,12 @@ if (
 	return;
 }
 
-for ( int i = 1; i <= impTarget.getNSlices(); ++i )
+n = impTarget.getImageStackSize();
+
+for ( int i = 1; i <= n; ++i )
 {
+	IJ.showProgress( i - 1, n );
+	
 	BufferedImage src = sSource.getProcessor( i ).getBufferedImage();
 	BufferedImage dst = sTarget.getProcessor( i ).getBufferedImage();
 	
@@ -55,4 +71,5 @@ for ( int i = 1; i <= impTarget.getNSlices(); ++i )
 	impTarget.updateAndDraw();
 	
 }
+IJ.showProgress( n, n );
 impTarget.updateAndDraw();

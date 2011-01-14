@@ -1,0 +1,117 @@
+import ij.*;
+import ij.gui.*;
+import ij.process.*;
+import mpicbg.ij.*;
+import mpicbg.ij.util.*;
+import mpicbg.models.*;
+import java.util.*;
+
+template = null;
+source = null;
+interpolate = true;
+
+boolean setup()
+{
+	ids = WindowManager.getIDList();
+	if ( ids == null || ids.length < 2 )
+	{
+		IJ.showMessage( "You should have at least two images open." );
+		return false;
+	}
+		
+	titlesList = new ArrayList();
+	idsList = new ArrayList();
+	currentTitle = null;
+	for ( i = 0; i < ids.length; ++i )
+	{
+		imp = WindowManager.getImage( ids[ i ] );
+		roi = imp.getRoi();
+		if ( roi != null && roi.getType() == Roi.POINT )
+		{
+			titlesList.add( imp.getTitle() );
+			idsList.add( ids[ i ] );
+			if ( imp == WindowManager.getCurrentImage() )
+				currentTitle = imp.getTitle();
+		}
+	}
+		
+	if ( titlesList.size() < 2 )
+	{
+		IJ.showMessage( "You should have at least two images with selected landmark correspondences open." );
+		return false;
+	}
+	titles = new String[ titlesList.size() ];
+	titlesList.toArray( titles );
+		
+	if ( currentTitle == null )
+		currentTitle = titles[ 0 ];
+	gd = new GenericDialog( "Transform" );
+		
+	gd.addChoice( "source_image", titles, currentTitle );
+	gd.addChoice( "template_image", titles, currentTitle.equals( titles[ 0 ] ) ? titles[ 1 ] : titles[ 0 ] );
+	gd.addCheckbox( "interpolate", interpolate );
+	gd.showDialog();
+		
+	if ( gd.wasCanceled() ) return false;
+		
+	source = WindowManager.getImage( idsList.get( gd.getNextChoiceIndex() ) );
+	template = WindowManager.getImage( idsList.get( gd.getNextChoiceIndex() ) );
+	interpolate = gd.getNextBoolean();
+		
+	return true;		
+}
+
+void run()
+{
+	matches = new ArrayList();
+		
+	if ( !setup() ) return;
+		
+	target = template.createImagePlus();
+		
+	ipSource = source.getProcessor();
+	ipTarget = source.getProcessor().createProcessor( template.getWidth(), template.getHeight() );
+		
+	/* Collect the PointRois from both images and make PointMatches of them. */
+	sourcePoints = Util.pointRoiToPoints( source.getRoi() );
+	templatePoints = Util.pointRoiToPoints( template.getRoi() );
+	
+	numMatches = Math.min( sourcePoints.size(), templatePoints.size() );
+		
+	for ( i = 0; i < numMatches; ++i )
+		matches.add( new PointMatch( sourcePoints.get( i ), templatePoints.get( i ) ) );
+	
+	model = new HomographyModel2D();
+	try
+	{
+		model.fit( matches );
+		IJ.log( model.toString() );
+		IJ.log( "" + model.getCost() );
+	}
+	catch ( NotEnoughDataPointsException e )
+	{
+		IJ.showMessage( "Not enough landmarks selected to find a transformation model." );
+		return;
+	}
+	catch ( IllDefinedDataPointsException e )
+	{
+		IJ.showMessage( "The set of landmarks is ill-defined in terms of the desired transformation." );
+		return;
+	}
+			
+	mapping = new InverseTransformMapping( model );
+	
+	if ( interpolate )
+	{
+		ipSource.setInterpolationMethod( ImageProcessor.BILINEAR );
+		mapping.mapInterpolated( ipSource, ipTarget );
+	}
+	else
+		mapping.map( ipSource, ipTarget );
+		
+	target.setProcessor( "Transformed" + source.getTitle(), ipTarget );
+	target.show();
+}
+
+run();
+

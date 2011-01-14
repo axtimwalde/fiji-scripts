@@ -1,0 +1,16 @@
+import ij.*;
+import mpicbg.imglib.*;
+import mpicbg.imglib.image.*;
+import mpicbg.imglib.cursor.imageplus.*;
+import mpicbg.imglib.container.imageplus.*;
+import mpicbg.imglib.type.numeric.integer.*;
+import mpicbg.imglib.algorithm.gauss.*;
+import mpicbg.imglib.outofbounds.*;
+
+img = ImagePlusAdapter.wrap( ( ImagePlus )IJ.getImage() );
+
+//gauss = new GaussianConvolutionReal( img, new OutOfBoundsStrategyMirrorFactory(), 2.0f );
+gauss = new GaussianConvolutionReal( img, new OutOfBoundsStrategyMirrorFactory(), new double[]{ 0, 0, 3.0 } );
+if ( gauss.checkInput() && gauss.process() )
+	gauss.getResult().getContainer().getImagePlus().show();
+

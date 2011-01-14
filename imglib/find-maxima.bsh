@@ -1,0 +1,47 @@
+import ij.*;
+import mpicbg.imglib.*;
+import mpicbg.imglib.image.*;
+import mpicbg.imglib.cursor.*;
+import mpicbg.imglib.cursor.special.*;
+import mpicbg.imglib.type.numeric.*;
+import mpicbg.imglib.outofbounds.*;
+import java.util.*;
+
+
+ArrayList findMaxima(img,r){
+  maxima=new ArrayList();
+  c=img.createLocalizableCursor();
+  h=new HyperSphereIterator(
+      img,c,r,new OutOfBoundsStrategyMirrorFactory());
+  while (c.hasNext()){
+    c.fwd();
+    h.reset();
+    t=c.getType();
+    isMaximum=true;
+    while(h.hasNext()&&isMaximum){
+      h.fwd();
+      if (t.compareTo(h.getType())==0){
+        for (i=img.getNumDimensions()-1;i>=0;--i)
+          if (c.getPosition(i)!=h.getPosition(i)){
+            isMaximum=false;
+            break;
+          }
+      }
+      else if (t.compareTo(h.getType())==-1) {
+        isMaximum=false;
+        break;
+      }
+    }
+    if (isMaximum){
+      p=new int[img.getNumDimensions()];
+      c.getPosition(p);
+      maxima.add(p);
+      c.getType().set(255);
+      IJ.getImage().updateAndDraw();
+    }
+  }
+  return maxima;
+}
+
+img = ImagePlusAdapter.wrap( ( ImagePlus )IJ.getImage() );
+l = findMaxima(img,3);

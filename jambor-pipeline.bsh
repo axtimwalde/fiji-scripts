@@ -1,0 +1,78 @@
+import ij.*;
+import ij.io.*;
+import ij.process.*;
+
+import java.io.*;
+
+import loci.formats.*;
+import loci.plugins.util.*;
+
+fileExtension = "zvi";
+defaultDirectory = "/home/jambor/Desktop";
+
+
+class FileFilter implements FilenameFilter
+{
+	final static private String regex = ".*\\." + fileExtension;
+	public boolean accept( File dir, String name )
+	{
+		if ( name.matches( regex ) )
+		{
+			file = new File( dir, name );
+			return file.exists() && file.isFile();
+		}
+		else
+			return false;
+	}
+}
+
+ImagePlus openImage( pathName )
+{
+	ImageProcessorReader r = new ImageProcessorReader( new ChannelSeparator( LociPrefs.makeImageReader() ) );
+	try
+	{
+		IJ.showStatus( "Examining file " + name );
+		r.setId( pathName );
+		n = r.getImageCount();
+		w = r.getSizeX();
+		h = r.getSizeY();
+		stack = new ImageStack( w, h );
+		lookupTable = new byte[ r.getSizeC() ][][];
+		for ( int i = 0; i < n; i++ )
+		{
+			ip = r.openProcessors( i )[ 0 ];
+			stack.addSlice( "" + ( i + 1 ), ip );
+			c = r.getZCTCoords( i )[ 1 ];
+			lookupTable[ c ] = r.get8BitLookupTable();
+		}
+		imp = new ImagePlus( pathName, stack );
+		return imp;
+	}
+	catch (FormatException exc)
+	{
+		IJ.error("Sorry, an error occurred: " + exc.getMessage());
+	}
+	catch (IOException exc)
+	{
+		IJ.error("Sorry, an error occurred: " + exc.getMessage());
+	}
+}
+
+dc = new DirectoryChooser( "Choose a directory" );
+dc.setDefaultDirectory( defaultDirectory );
+dirName = dc.getDirectory();
+
+if ( dirName != null )
+{
+	dir = new File( dirName );
+	fileNameList;
+	if ( dir.exists() && dir.isDirectory() )
+		fileNameList = dir.list( new FileFilter() );
+
+	for ( f : fileNameList )
+	{
+		imp = openImage( dir.getPath() + f );
+		imp.show();
+		IJ.log( dir.getPath() + "/" + f );
+	}
+}

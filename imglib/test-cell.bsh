@@ -1,0 +1,187 @@
+import ij.*;
+import mpicbg.imglib.*;
+import mpicbg.imglib.container.cell.*;
+import mpicbg.imglib.image.*;
+import mpicbg.imglib.sampler.*;
+import mpicbg.imglib.sampler.cell.*;
+import mpicbg.imglib.type.numeric.real.*;
+import mpicbg.imglib.outofbounds.*;
+
+containerFactory = new CellContainerFactory( 3 );
+imageFactory = new ImageFactory( new FloatType(), containerFactory );
+
+String print( prefix, lrs )
+{
+	int i;
+	l = new int[ lrs.numDimensions() ];
+	lrs.localize( l );
+	s = prefix + "(" + l[0];
+	for ( j = 1; j < lrs.numDimensions(); ++j )
+		s += "," + l[j];
+	s += ") : " + lrs.type().toString();
+}
+
+img = imageFactory.createImage( new int[]{ 5, 4 } );
+
+it = img.createRasterIterator();
+i = 0;
+while ( it.hasNext() )
+	it.next().setReal( i++ );
+
+it.reset();
+lit = img.createLocalizingRasterIterator();
+pit = new int[ 2 ];
+plit = new int[ 2 ];
+while ( lit.hasNext() )
+{
+	it.fwd();
+	lit.fwd();
+	
+	it.localize( pit );
+	lit.localize( plit );
+	
+	if (
+			it.type().compareTo( lit.type() ) == 0 &&
+	 		pit[ 0 ] == plit[ 0 ] &&
+	 		pit[ 1 ] == plit[ 1 ] )
+		IJ.log(
+				print( "l: ", it ) + " == " +
+				print( "", lit ) );
+	else
+		IJ.log(
+				print( "l: ", it ) + " != " +
+				print( "", lit ) );
+}
+
+lit.close();
+
+it.reset();
+prs = img.createPositionableRasterSampler();
+pit = new int[ 2 ];
+pprs = new int[ 2 ];
+while ( it.hasNext() )
+{
+	it.fwd();
+	
+	prs.setPosition( it );
+	
+	it.localize( pit );
+	prs.localize( pprs );
+	
+	if (
+			it.type().compareTo( prs.type() ) == 0 &&
+	 		pit[ 0 ] == pprs[ 0 ] &&
+	 		pit[ 1 ] == pprs[ 1 ] )
+		IJ.log(
+				print( "ps: ", it ) + " == " +
+				print( "", prs ) );
+	else
+		IJ.log(
+				print( "ps: ", it ) + " != " +
+				print( "", prs ) );
+}
+
+it.reset();
+while ( it.hasNext() )
+{
+	it.fwd();
+	
+	prs.moveTo( it );
+	
+	it.localize( pit );
+	prs.localize( pprs );
+	
+	if (
+			it.type().compareTo( prs.type() ) == 0 &&
+	 		pit[ 0 ] == pprs[ 0 ] &&
+	 		pit[ 1 ] == pprs[ 1 ] )
+		IJ.log(
+				print( "pm: ", it ) + " == " +
+				print( "", prs ) );
+	else
+		IJ.log(
+				print( "ps: ", it ) + " != " +
+				print( "", prs ) );
+}
+
+it.close();
+prs.close();
+
+oprs1 = img.createPositionableRasterSampler( new OutOfBoundsStrategyPeriodicFactory() );
+oprs2 = img.createPositionableRasterSampler( new OutOfBoundsStrategyPeriodicFactory() );
+poprs1 = new int[ 2 ];
+poprs2 = new int[ 2 ];
+
+for ( i = 0; i < 100; ++i )
+{
+	poprs1[ 0 ] = 4 * i;
+	oprs1.setPosition( poprs1 );
+	
+	oprs1.localize( poprs1 );
+	oprs2.localize( poprs2 );
+	
+	if (
+			oprs1.type().compareTo( oprs2.type() ) == 0 &&
+	 		poprs1[ 0 ] == poprs2[ 0 ] &&
+	 		poprs1[ 1 ] == poprs2[ 1 ] )
+		IJ.log(
+				print( i + ". psm: ", oprs1 ) + " == " +
+				print( "", oprs2 ) );
+	else
+		IJ.log(
+				print( i + ". psm: ", oprs1 ) + " != " +
+				print( "", oprs2 ) );
+				
+	oprs2.move( 4, 0 );
+}
+
+p = img.createPositionableRasterSampler();
+IJ.log( p.type().toString() );
+p.fwd( 0 );
+IJ.log( p.type().toString() );
+p.fwd( 0 );
+IJ.log( p.type().toString() );
+p.fwd( 0 );
+IJ.log( p.type().toString() );
+p.fwd( 0 );
+IJ.log( p.type().toString() );
+p.fwd( 1 );
+IJ.log( p.type().toString() );
+p.fwd( 1 );
+IJ.log( p.type().toString() );
+p.fwd( 1 );
+IJ.log( p.type().toString() );
+p.bck( 0 );
+IJ.log( p.type().toString() );
+p.bck( 1 );
+IJ.log( p.type().toString() );
+p.bck( 0 );
+IJ.log( p.type().toString() );
+
+oprs1.close();
+oprs2.close();
+img.close();
+
+
+/* replicate bug */
+img = imageFactory.createImage( new int[]{ 135, 111 } );
+op = img.createPositionableRasterSampler( new OutOfBoundsStrategyPeriodicFactory() );
+pos = new int[ 2 ];
+pos[ 1 ] = -111;
+op.moveTo( pos );	
+IJ.log( op.type() + "" );
+
+pos[ 0 ] = 271;
+pos[ 1 ] = 0;
+op.moveTo( pos );	
+IJ.log( op.type() + "" );
+
+pos[ 0 ] = 2;
+pos[ 1 ] = -333;
+op.moveTo( pos );	
+IJ.log( op.type() + "" );
+
+op.close();
+img.close();
+
+

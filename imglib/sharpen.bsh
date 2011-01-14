@@ -1,0 +1,25 @@
+import ij.*;
+import mpicbg.imglib.algorithm.fft.*;
+import mpicbg.imglib.container.array.ArrayContainerFactory;
+import mpicbg.imglib.image.*;
+import mpicbg.imglib.image.display.imagej.ImageJFunctions;
+import mpicbg.imglib.type.numeric.complex.ComplexFloatType;
+import mpicbg.imglib.type.numeric.real.FloatType;
+
+img = ImagePlusAdapter.wrap( ( ImagePlus )IJ.getImage() );
+kernel = InverseFourierConvolution.createGaussianKernel( new ArrayContainerFactory(), 1.0, img.getNumDimensions() );
+
+inverseFourierConvolution = new InverseFourierConvolution( img, kernel );
+		
+if ( inverseFourierConvolution.checkInput() && inverseFourierConvolution.process() )
+{
+	inverseConvolved = inverseFourierConvolution.getResult();
+	inverseConvolved.setName( "("  + inverseFourierConvolution.getProcessingTime() + " ms) Inverse convolution of " + img.getName() );
+	
+	inverseConvolved.getDisplay().setMinMax();		
+	try { ImageJFunctions.copyToImagePlus( inverseConvolved ).show(); }
+	catch ( e ) { e.printStackTrace(); }
+}
+else
+	System.out.println( "Cannot compute inverse fourier convolution: " + inverseFourierConvolution.getErrorMessage() );
+

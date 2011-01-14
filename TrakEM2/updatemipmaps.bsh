@@ -36,7 +36,7 @@ class UpdateMipmapsThread extends Thread
 
 layers = Display.getFront().getSelection().getLayer().getParent().getLayers();
 patches = new ArrayList();
-for ( int i = 212; i < layers.size(); ++i )
+for ( int i = 278; i < layers.size(); ++i )
 	patches.addAll( layers.get( i ).getDisplayables( Patch.class ) );
 
 AtomicInteger ai = new AtomicInteger( 0 );

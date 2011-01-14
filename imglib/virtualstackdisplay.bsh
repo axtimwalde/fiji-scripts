@@ -1,0 +1,9 @@
+import ij.*;
+import mpicbg.imglib.image.*;
+import mpicbg.imglib.container.imageplus.*;
+import mpicbg.imglib.image.display.imagej.*;
+
+img = ImagePlusAdapter.wrap( ( ImagePlus )IJ.getImage() );
+img.getDisplay().setMinMax();
+imp = ImageJFunctions.displayAsVirtualStack( img );
+imp.show();
