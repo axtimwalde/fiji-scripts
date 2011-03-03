@@ -1,0 +1,28 @@
+import ini.trakem2.display.*;
+import java.util.ArrayList;
+import ij.gui.*;
+import java.awt.geom.AffineTransform;
+
+layers = Display.getFront().getLayer().getParent().getLayers();
+
+firstLayer = 0;
+lastLayer = layers.size() - 1;
+
+for ( int i = firstLayer; i <= lastLayer; ++i )
+{
+	layer = layers.get( i );
+	minX = Integer.MAX_VALUE;
+	minY = Integer.MAX_VALUE;
+	for ( patch : layer.getDisplayables( Patch.class ) )
+	{
+		b = patch.getBoundingBox();
+		if ( minX > b.x ) minX = b.x;
+		if ( minY > b.y ) minY = b.y;
+	}
+	for ( patch : layer.getDisplayables( Patch.class ) )
+	{
+		at = patch.getAffineTransform();
+		at.translate( -minX, -minY );
+	}
+	Display.repaint();
+}
