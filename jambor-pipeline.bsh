@@ -1,14 +1,132 @@
+/**
+ * Manual preparation and classification of egg-chamber images.
+ *
+ * Pipeline:
+ *  1. Choose directory containing images.
+ *  2. For each image in directory:
+ *  3.   Open image.
+ *  4.   Ask for Gene name (text input).
+ *  5.   Until not finished (Escape)
+ *  6.     Select z-section.
+ *  7.     Make three points: 1. anterior, 2. posterior, 3. lateral (Return)
+ *  8.     Show semi-canonical egg-chamber (scaling only anterior-posterior)
+ *  9.     Adjust Cy3 channel (for visualization)
+ * 10.     Assign CV terms (toggle on and off by hot-keys, Return)
+ */
+
 import ij.*;
 import ij.io.*;
 import ij.process.*;
+import ij.measure.*;
+import ij.gui.*;
 
+import java.awt.event.*;
 import java.io.*;
 
 import loci.formats.*;
 import loci.plugins.util.*;
+import loci.formats.meta.*;
+
+import mpicbg.ij.*;
+import mpicbg.models.*;
+import mpicbg.ij.util.*;
 
 fileExtension = "zvi";
-defaultDirectory = "/home/jambor/Desktop";
+defaultDirectory = "/home/jambor/Desktop/AU11_ISH_Apotome";
+previewResolution = 200;
+previewPadding = 20;
+resolution = 64;
+padding = 4;
+
+/* state variables */
+
+
+class Transformer implements KeyListener, MouseListener, MouseMotionListener
+{
+	public void keyPressed( KeyEvent e )
+	{
+		if ( e.getKeyCode() == KeyEvent.VK_ESCAPE )
+		{
+			nextFile();
+		}
+		else if (
+				e.getKeyCode() == KeyEvent.VK_1 ||
+				e.getKeyCode() == KeyEvent.VK_2 ||
+				e.getKeyCode() == KeyEvent.VK_3 ||
+				e.getKeyCode() == KeyEvent.VK_4 ||
+				e.getKeyCode() == KeyEvent.VK_5 )
+		{
+			IJ.log( "number clicked" );
+			IJ.log( points.size() + " points clicked." );
+			if ( points.size() == 3 )
+					nextEggChamber();
+			else
+				IJ.error( "Please select in that exact order: 1. anterior pole, 2. posterior pole, 3. lateral pole" );
+		}
+	}
+	
+	public void mousePressed( MouseEvent e )
+	{
+		IJ.log( "mouse pressed" );
+		targetIndex = -1;
+		win = impFile.getWindow();
+		xm = win.getCanvas().offScreenX( e.getX() );
+		ym = win.getCanvas().offScreenY( e.getY() );
+		
+		/* find the closest point to be dragged if any */
+		target_d = Double.MAX_VALUE;
+		IJ.log( "points.size = " + points.size() );
+		for ( i = 0; i < points.size(); ++i )
+		{
+			l = points.get( i ).getL();
+			dx = win.getCanvas().getMagnification() * ( l[ 0 ] - xm );
+			dy = win.getCanvas().getMagnification() * ( l[ 1 ] - ym );
+			d =  dx * dx + dy * dy;
+			
+			if ( d < 64.0 && d < target_d )
+			{
+				targetIndex = i;
+				target_d = d;
+			}
+		}
+		
+		IJ.log( "targetIndex = " + targetIndex );
+		IJ.log( "points " + mpicbg.ij.util.Util.pointsToPointRoi( points ) );
+		if ( e.getButton() == MouseEvent.BUTTON1 )
+		{		
+			if ( targetIndex == -1 )
+			{
+				points.add( new Point( new float[]{ xm, ym }) );
+				impFile.setRoi( mpicbg.ij.util.Util.pointsToPointRoi( points ) );
+			}
+			else if ( ( e.getModifiersEx() & KeyEvent.CTRL_DOWN_MASK ) != 0 )
+			{
+				points.remove( targetIndex );
+				impFile.setRoi( mpicbg.ij.util.Util.pointsToPointRoi( points ) );
+			}
+		}
+	}
+	public void mouseReleased( MouseEvent e ){}
+	public void mouseExited( MouseEvent e ){}
+	public void mouseClicked( MouseEvent e ){}	
+	public void mouseEntered( MouseEvent e ){}
+	
+	public void mouseDragged( MouseEvent e )
+	{
+		IJ.log( "mouse dragged." );
+		if ( targetIndex >= 0 )
+		{
+			win = impFile.getWindow();
+			l = points.get( i ).getL();
+			l[ 0 ] = win.getCanvas().offScreenX( e.getX() );
+			l[ 1 ] = win.getCanvas().offScreenY( e.getY() );
+			
+			impFile.setRoi( Util.pointsToPointRoi( points ) );
+		}
+	}
+	
+	public void mouseMoved( MouseEvent e ){}
+}
 
 
 class FileFilter implements FilenameFilter
@@ -26,13 +144,80 @@ class FileFilter implements FilenameFilter
 	}
 }
 
+/**
+ * Backup old event handlers for restore.
+ */
+final void backupGui( imp )
+{
+	canvasKeyListeners = imp.getCanvas().getKeyListeners();
+	canvasMouseListeners = imp.getCanvas().getMouseListeners();
+	canvasMouseMotionListeners = imp.getCanvas().getMouseMotionListeners();
+	windowKeyListeners = imp.getWindow().getKeyListeners();
+	ijKeyListeners = IJ.getInstance().getKeyListeners();
+	
+	clearGui( imp );
+}
+
+/**
+ * Remove both ours and the backed up event handlers.
+ */
+final void clearGui( imp )
+{
+	for ( l : canvasKeyListeners )
+		imp.getCanvas().removeKeyListener( l );
+	for ( l : canvasMouseListeners )
+		imp.getCanvas().removeMouseListener( l );
+	for ( l : canvasMouseMotionListeners )
+		imp.getCanvas().removeMouseMotionListener( l );
+	for ( l : windowKeyListeners )
+		imp.getWindow().removeKeyListener( l );
+	for ( l : ijKeyListeners )
+		IJ.getInstance().removeKeyListener( l );
+	
+	imp.getCanvas().removeKeyListener( transformer );
+	imp.getCanvas().removeMouseListener( transformer );
+	imp.getCanvas().removeMouseMotionListener( transformer );
+	imp.getWindow().removeKeyListener( transformer );
+	IJ.getInstance().removeKeyListener( transformer );
+}
+
+/**
+ * Restore the previously active Event handlers.
+ */
+final void restoreGui( imp )
+{
+	clearGui( imp );
+	for ( l : canvasKeyListeners )
+		imp.getCanvas().addKeyListener( l );
+	for ( l : canvasMouseListeners )
+		imp.getCanvas().addMouseListener( l );
+	for ( l : canvasMousMotioneListeners )
+		imp.getCanvas().addMouseMotionListener( l );
+	for ( l : windowKeyListeners )
+		imp.getWindow().addKeyListener( l );
+	for ( l : ijKeyListeners )
+		IJ.getInstance().addKeyListener( l );
+}
+
 ImagePlus openImage( pathName )
 {
 	ImageProcessorReader r = new ImageProcessorReader( new ChannelSeparator( LociPrefs.makeImageReader() ) );
+	MetadataStore store = MetadataTools.createOMEXMLMetadata();
+	r.setMetadataStore( store );
 	try
 	{
-		IJ.showStatus( "Examining file " + name );
 		r.setId( pathName );
+		MetadataRetrieve retrieve = MetadataTools.asRetrieve( r.getMetadataStore() );
+	
+		Double pw = retrieve.getPixelsPhysicalSizeX( 0 );
+		pw = pw == null ? new Double( 1.0 ) : pw;
+		Double ph = retrieve.getPixelsPhysicalSizeY( 0 );
+		ph = ph == null ? new Double( 1.0 ) : ph;
+		Double pd = retrieve.getPixelsPhysicalSizeZ( 0 );
+		pd = pd == null ? new Double( 1.0 ) : pd;
+		Double pt = retrieve.getPixelsTimeIncrement( 0 );
+		pt = pt == null ? new Double( 1.0 ) : pt;
+		
 		n = r.getImageCount();
 		w = r.getSizeX();
 		h = r.getSizeY();
@@ -46,33 +231,121 @@ ImagePlus openImage( pathName )
 			lookupTable[ c ] = r.get8BitLookupTable();
 		}
 		imp = new ImagePlus( pathName, stack );
-		return imp;
+		calibration = imp.getCalibration();
+		calibration.pixelWidth = pw.doubleValue();
+		calibration.pixelHeight = ph.doubleValue();
+		calibration.pixelDepth = pd.doubleValue();
+		calibration.frameInterval = pt.doubleValue();
+		calibration.setUnit( "um" );
+		imp.setDimensions( r.getSizeC(), r.getSizeZ(), r.getSizeT() );
+		imp.setOpenAsHyperStack( true );
+		cimp = new CompositeImage( imp );
+		cimp.setMode( CompositeImage.COMPOSITE );
+		return cimp;
 	}
-	catch (FormatException exc)
+	catch ( FormatException exc )
 	{
-		IJ.error("Sorry, an error occurred: " + exc.getMessage());
+		IJ.error("FormatException: Sorry, an error occurred: " + exc.getMessage());
 	}
-	catch (IOException exc)
+	catch ( IOException exc )
 	{
-		IJ.error("Sorry, an error occurred: " + exc.getMessage());
+		IJ.error("IOException: Sorry, an error occurred: " + exc.getMessage());
 	}
+	return null;
+}
+
+ImagePlus map( imp, transform, width, height )
+{
+	mapping = new InverseTransformMapping( transform );
+	stack = new ImageStack( width, height );
+	for ( c = 1; c <= imp.getNChannels(); ++c )
+	{
+		source = imp.getStack().getProcessor( imp.getStackIndex( c, imp.getSlice(), imp.getFrame() ) );
+		target = source.createProcessor( width, height );
+		mapping.mapInterpolated( source, target );
+		stack.addSlice( "", target );
+	}
+	impMapped = new ImagePlus( "", stack );
+	impMapped.setOpenAsHyperStack( true );
+	impMapped.setDimensions( imp.getNChannels(), 1, 1 );
+	return new CompositeImage( impMapped, CompositeImage.COMPOSITE );
+}
+
+void nextFile()
+{
+	++fileIndex;
+	if ( impFile != null )
+	{
+		restoreGui( impFile );
+		impFile.close();
+	}
+	fileName = dir.getPath() + "/" + fileNameList[ fileIndex ];
+	impFile = openImage( fileName );
+	if ( impFile != null )
+	{
+		IJ.setTool("multipoint");
+		impFile.show();
+		backupGui( impFile );
+		impFile.getWindow().addKeyListener( transformer );
+		impFile.getCanvas().addKeyListener( transformer );
+		impFile.getCanvas().addMouseListener( transformer );
+		impFile.getCanvas().addMouseMotionListener( transformer );
+		IJ.getInstance().addKeyListener( transformer );
+	}
+	else
+		IJ.log( "File `" + fileName + "' not found." );
+}
+
+/* Process next egg chamber, depends on having an image open and 3 points selected */
+void nextEggChamber()
+{
+	matches = new ArrayList();
+	matches.add( new PointMatch( points.get( 0 ), new Point( new float[]{ padding, resolution / 2 } ) ) );
+	matches.add( new PointMatch( points.get( 1 ), new Point( new float[]{ resolution - padding, resolution / 2 } ) ) );
+	matches.add( new PointMatch( points.get( 2 ), new Point( new float[]{ resolution / 2, padding } ) ) );
+	
+	previewMatches = new ArrayList();
+	previewMatches.add( new PointMatch( points.get( 0 ), new Point( new float[]{ previewPadding, previewResolution / 2 } ) ) );
+	previewMatches.add( new PointMatch( points.get( 1 ), new Point( new float[]{ previewResolution - previewPadding, previewResolution / 2 } ) ) );
+	
+	transform = new AffineModel2D();
+	transform.fit( matches );
+	
+	previewTransform = new SimilarityModel2D();
+	previewTransform.fit( previewMatches );
+	
+	impTransform = map( impFile, transform, resolution, resolution );
+	impTransform.show();
+	
+	impPreview = map( impFile, previewTransform, previewResolution, previewResolution );
+	impPreview.show();
 }
 
 dc = new DirectoryChooser( "Choose a directory" );
 dc.setDefaultDirectory( defaultDirectory );
 dirName = dc.getDirectory();
+dir = null;
+fileIndex = -1;
+impFile = null;
+fileNameList = null;
+transformer = new Transformer();
+points = new ArrayList();
+targetIndex = -1;
 
+/* GUI */
+canvasKeyListeners = new ArrayList();
+canvasMouseListeners = new ArrayList();
+canvasMouseMotionListeners = new ArrayList();
+windowKeyListeners = new ArrayList();
+ijKeyListeners = new ArrayList();
+	
 if ( dirName != null )
 {
 	dir = new File( dirName );
-	fileNameList;
 	if ( dir.exists() && dir.isDirectory() )
 		fileNameList = dir.list( new FileFilter() );
-
-	for ( f : fileNameList )
-	{
-		imp = openImage( dir.getPath() + f );
-		imp.show();
-		IJ.log( dir.getPath() + "/" + f );
-	}
+		
+	int fileIndex = -1;
+	
+	nextFile();
 }
