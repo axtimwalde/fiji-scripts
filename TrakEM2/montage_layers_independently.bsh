@@ -12,7 +12,9 @@ deleteDisconnectedTiles = false;
 
 Align.ParamOptimize p;
 
+layers = Display.getFront().getLayer().getParent().getLayers();
 firstLayer = 0;
+lastLayer = layers.size() - 1;
 
 boolean setup()
 {
@@ -42,11 +44,18 @@ fixedPatches = new ArrayList();
 
 if ( setup() )
 {
-	layers = Display.getFront().getLayer().getParent().getLayers();
-	for ( int i = firstLayer; i < layers.size(); ++i )
+	for ( int i = firstLayer; i <= lastLayer; ++i )
 	{
 		layer = layers.get( i );
-		AlignTask.alignPatches( p, layer.getDisplayables( Patch.class ), fixedPatches );
+		AlignTask.alignPatches(
+				p,
+				layer.getDisplayables( Patch.class ),
+				fixedPatches,
+				tilesAreInPlace,
+				largestGraphOnly,
+				hideDisconnectedTiles,
+				deleteDisconnectedTiles );
+				
 		minX = Integer.MAX_VALUE;
 		minY = Integer.MAX_VALUE;
 		for ( patch : layer.getDisplayables( Patch.class ) )
