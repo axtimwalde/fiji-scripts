@@ -13,6 +13,8 @@
  *  9.     Adjust Cy3 channel (for visualization)
  * 10.     Assign CV terms (toggle on and off by hot-keys, Return)
  */
+ 
+import fiji.tool.AbstractTool;
 
 import ij.*;
 import ij.io.*;
@@ -38,15 +40,90 @@ previewPadding = 20;
 resolution = 64;
 padding = 4;
 
-/* state variables */
+stages = new String[]
+{
+	"Germarium terminal filament",
+	"stage 3-7",
+	"stage 8",
+	"stage 9",
+	"stage 10"
+};
+
+cvTerms = new String[][]
+{
+	{
+		"terminal filament",
+		"follicle stem cells, escort cells",
+		"Germ stem cell, Cystoblast, presumptive nurse cels, presumptive oocyte"
+	},
+	{
+		"interfollicluar stalk",
+		"anterior polar cells",
+		"posterior polar cells",
+		"follicle cells",
+		"nurse cells cytoplasm",
+		"nurse cells ring canals",
+		"oocyte ubiquitous",
+		"oocyte posterior"
+	},
+	{
+		"interfollicluar stalk",
+		"anterior polar cells",
+		"posterior polar cells",
+		"nurse cell associated follicle cells",
+		"oocyte associated follicle cells",
+		"nurse cells cytoplasm",
+		"nurse cells ring canals",
+		"oocyte",
+		"oocyte ubiquitous",
+		"oocyte anterior",
+		"oocyte anterior-dorsal",
+		"oocyte cortex",
+		"oocyte posterior",
+		"oocyte central"
+	},
+	{
+		"interfollicluar stalk",
+		"border cells",
+		"posterior polar cells",
+		"nurse cell associated follicle cells",
+		"oocyte associated follicle cells",
+		"nurse cells cytoplasm",
+		"nurse cells ring canals",
+		"oocyte",
+		"oocyte ubiquitous",
+		"oocyte anterior",
+		"oocyte anterior-dorsal",
+		"oocyte cortex",
+		"oocyte posterior",
+		"oocyte central"
+	},
+	{
+		"interfollicluar stalk",
+		"border cells",
+		"posterior polar cells",
+		"centripetally migrating cells",
+		"oocyte associated follicle cells",
+		"nurse cells cytoplasm",
+		"nurse cells ring canals",
+		"oocyte",
+		"oocyte ubiquitous",
+		"oocyte anterior",
+		"oocyte anterior-dorsal",
+		"oocyte cortex",
+		"oocyte posterior",
+		"oocyte central"
+	}
+};
 
 
-class Transformer implements KeyListener, MouseListener, MouseMotionListener
+class Transformer extends AbstractTool implements KeyListener, MouseListener, MouseMotionListener
 {
 	public void keyPressed( KeyEvent e )
 	{
 		if ( e.getKeyCode() == KeyEvent.VK_ESCAPE )
 		{
+			IJ.log( "Escape typed" );
 			nextFile();
 		}
 		else if (
@@ -56,18 +133,30 @@ class Transformer implements KeyListener, MouseListener, MouseMotionListener
 				e.getKeyCode() == KeyEvent.VK_4 ||
 				e.getKeyCode() == KeyEvent.VK_5 )
 		{
-			IJ.log( "number clicked" );
-			IJ.log( points.size() + " points clicked." );
+			if ( e.getKeyCode() == KeyEvent.VK_1 )
+				eggChamberStage = 1;
+			else if ( e.getKeyCode() == KeyEvent.VK_2 )
+				eggChamberStage = 2;
+			else if ( e.getKeyCode() == KeyEvent.VK_3 )
+				eggChamberStage = 3;
+			else if ( e.getKeyCode() == KeyEvent.VK_4 )
+				eggChamberStage = 4;
+			else if ( e.getKeyCode() == KeyEvent.VK_5 )
+				eggChamberStage = 5;
+				
 			if ( points.size() == 3 )
 					nextEggChamber();
 			else
 				IJ.error( "Please select in that exact order: 1. anterior pole, 2. posterior pole, 3. lateral pole" );
 		}
+		e.consume();
 	}
+	
+	public void keyReleased( KeyEvent e ) { e.consume(); }
+	public void keyTyped( KeyEvent e ) { e.consume(); }
 	
 	public void mousePressed( MouseEvent e )
 	{
-		IJ.log( "mouse pressed" );
 		targetIndex = -1;
 		win = impFile.getWindow();
 		xm = win.getCanvas().offScreenX( e.getX() );
@@ -75,7 +164,6 @@ class Transformer implements KeyListener, MouseListener, MouseMotionListener
 		
 		/* find the closest point to be dragged if any */
 		target_d = Double.MAX_VALUE;
-		IJ.log( "points.size = " + points.size() );
 		for ( i = 0; i < points.size(); ++i )
 		{
 			l = points.get( i ).getL();
@@ -90,8 +178,6 @@ class Transformer implements KeyListener, MouseListener, MouseMotionListener
 			}
 		}
 		
-		IJ.log( "targetIndex = " + targetIndex );
-		IJ.log( "points " + mpicbg.ij.util.Util.pointsToPointRoi( points ) );
 		if ( e.getButton() == MouseEvent.BUTTON1 )
 		{		
 			if ( targetIndex == -1 )
@@ -105,6 +191,7 @@ class Transformer implements KeyListener, MouseListener, MouseMotionListener
 				impFile.setRoi( mpicbg.ij.util.Util.pointsToPointRoi( points ) );
 			}
 		}
+		e.consume();
 	}
 	public void mouseReleased( MouseEvent e ){}
 	public void mouseExited( MouseEvent e ){}
@@ -113,19 +200,127 @@ class Transformer implements KeyListener, MouseListener, MouseMotionListener
 	
 	public void mouseDragged( MouseEvent e )
 	{
-		IJ.log( "mouse dragged." );
 		if ( targetIndex >= 0 )
 		{
 			win = impFile.getWindow();
-			l = points.get( i ).getL();
+			
+			l = points.get( targetIndex ).getL();
+			w = points.get( targetIndex ).getW();
 			l[ 0 ] = win.getCanvas().offScreenX( e.getX() );
 			l[ 1 ] = win.getCanvas().offScreenY( e.getY() );
+			w[ 0 ] = win.getCanvas().offScreenX( e.getX() );
+			w[ 1 ] = win.getCanvas().offScreenY( e.getY() );
 			
-			impFile.setRoi( Util.pointsToPointRoi( points ) );
+			impFile.setRoi( mpicbg.ij.util.Util.pointsToPointRoi( points ) );
 		}
+		e.consume();
 	}
 	
 	public void mouseMoved( MouseEvent e ){}
+	
+	public String getToolName()
+	{
+		return "Transformer";
+	}
+	
+	public String getToolIcon()
+	{
+		return "C999L0010CaaaD20C999D30CaaaD40CbbbL5070CaaaL80f0"
++ "C888D01C999D11C888D21C666L3161C888L71d1C999De1CaaaDf1"
++ "C888D02CaaaL1222C999L3242C888D52C777D62C666D72C000L8292C222Da2C444Db2C555Lc2d2C444De2C333Df2"
++ "C888D03C777D13C666D23C555L3353C666D63C555D73C444L83c3C333Dd3C444Le3f3"
++ "C888L0444C777D54C666D64C444D74C000L8494C222Da4C555Lb4c4C444Ld4f4"
++ "C888D05C666D15C333D25C222D35C000L4595C333Da5C555Db5C666Lc5d5C555De5C444Df5"
++ "C000L0616C333D26C888D36C000L4656C222D66C444D76CbbbD86C777D96C555Da6C000Db6C777Lc6f6"
++ "C111D07C888D17CaaaL2737C000D47C222D57C333L6777C999D87C555D97C444Da7C000Db7C888Dc7CaaaDd7C999Le7f7"
++ "C777D08CaaaD18CbbbD28CcccD38C000D48C333D58C777L6878C666D88C999D98CaaaDa8C888Db8CbbbDc8CdddDd8CcccDe8CbbbDf8"
++ "C777D09CbbbD19CcccD29CdddD39C999D49C111D59C888L6979C999D89CbbbD99CaaaDa9C999Db9CeeeDc9CfffDd9CeeeDe9CdddDf9"
++ "CbbbL0a1aCcccD2aCeeeL3a4aC888D5aC555D6aC666D7aC888D8aC999D9aCaaaDaaCdddDbaCfffLcadaCeeeDeaCdddDfa"
++ "CbbbD0bCcccL1b2bCdddL3b5bCaaaD6bC888D7bCbbbD8bCcccD9bCdddDabCfffLbbcbCeeeDdbCdddLebfb"
++ "CaaaD0cCbbbD1cCcccL2c3cCdddL4c5cCeeeL6c7cCfffL8c9cCeeeLacbcCdddLccfc"
++ "CaaaD0dCbbbL1d2dCcccL3dadCdddLbdfd"
++ "CbbbL0e1eCcccL2e5eCdddD6eCcccL7e9eCdddDaeCcccLbeeeCbbbDfe"
++ "D0fCcccL1f6fCdddL7fafCcccDbfCbbbDcfCaaaLdfff";
+	}
+}
+
+
+class Classifier extends AbstractTool implements KeyListener
+{
+	public void keyPressed( KeyEvent e )
+	{
+		IJ.log( "key pressed" );
+		stageCvTerms = cvTerms[ eggChamberStage - 1 ];
+		if ( e.getKeyCode() == KeyEvent.VK_ESCAPE )
+		{
+			IJ.log( "Escape typed" );
+			nextFile();
+		}
+		else if (
+				e.getKeyCode() == KeyEvent.VK_1 ||
+				e.getKeyCode() == KeyEvent.VK_2 ||
+				e.getKeyCode() == KeyEvent.VK_3 ||
+				e.getKeyCode() == KeyEvent.VK_4 ||
+				e.getKeyCode() == KeyEvent.VK_5 ||
+				e.getKeyCode() == KeyEvent.VK_6 ||
+				e.getKeyCode() == KeyEvent.VK_7 ||
+				e.getKeyCode() == KeyEvent.VK_8 ||
+				e.getKeyCode() == KeyEvent.VK_9 ||
+				e.getKeyCode() == KeyEvent.VK_0 )
+		{
+			if ( e.getKeyCode() == KeyEvent.VK_1 )
+				toggleCvTerm( stageCvTerms[ 0 ] );
+			else if ( e.getKeyCode() == KeyEvent.VK_2 )
+				toggleCvTerm( stageCvTerms[ 1 ] );
+			else if ( e.getKeyCode() == KeyEvent.VK_3 )
+				toggleCvTerm( stageCvTerms[ 2 ] );
+			else if ( e.getKeyCode() == KeyEvent.VK_4 )
+				toggleCvTerm( stageCvTerms[ 3 ] );
+			else if ( e.getKeyCode() == KeyEvent.VK_5 )
+				toggleCvTerm( stageCvTerms[ 4 ] );
+			else if ( e.getKeyCode() == KeyEvent.VK_6 )
+				toggleCvTerm( stageCvTerms[ 5 ] );
+			else if ( e.getKeyCode() == KeyEvent.VK_7 )
+				toggleCvTerm( stageCvTerms[ 6 ] );
+			else if ( e.getKeyCode() == KeyEvent.VK_8 )
+				toggleCvTerm( stageCvTerms[ 7 ] );
+			else if ( e.getKeyCode() == KeyEvent.VK_9 )
+				toggleCvTerm( stageCvTerms[ 8 ] );
+			else if ( e.getKeyCode() == KeyEvent.VK_0 )
+				toggleCvTerm( stageCvTerms[ 9 ] );
+				
+			writeCvTerms();
+		}
+		e.consume();
+	}
+	
+	public void keyReleased( KeyEvent e ) { e.consume(); }
+	public void keyTyped( KeyEvent e ) { e.consume(); }
+
+	public String getToolName()
+	{
+		return "Classifier";
+	}
+	
+	public String getToolIcon()
+	{
+		return "CaaaL0010C999D20CaaaL3040CbbbL5070CaaaD80C999L90a0C888Db0C777Dc0C888Ld0e0C999Df0"
++ "L0121CaaaL3141CbbbL5161CaaaL71c1C999Ld1f1"
++ "C888L0222C999D32CaaaL4262CbbbL7292CaaaDa2C888Db2C999Lc2d2CaaaLe2f2"
++ "C888D03C777D13C666D23C444D33C555D43C666D53C888D63C999L7383CaaaD93CbbbLa3d3CcccLe3f3"
++ "C666L0424C555L3444C222D54C000D64C333D74C444L8494C666La4b4C888Dc4C999Dd4CbbbLe4f4"
++ "C333L0515C555D25C444D35C000L4575C111D85C000L95a5C333Db5C999Dc5C888Dd5C777De5C666Df5"
++ "D06C777L1626C999D36C444D46C000D56C555D66CdddL7686C888D96C666Da6C555Db6CbbbDc6CdddLd6e6CaaaDf6"
++ "C888D07C999D17CbbbD27CdddD37C000D47C444D57C666L6777C888D87C777L97b7CaaaDc7CeeeDd7CfffDe7CdddDf7"
++ "C888D08CbbbD18CdddL2838C555D48C777D58C999D68C888D78CcccL8898CaaaDa8C999Db8CdddDc8CfffLd8e8CeeeDf8"
++ "CaaaD09CcccD19CeeeL2939CaaaD49C888D59CaaaL6979CcccL8999C999La9b9CfffLc9e9CeeeDf9"
++ "CcccD0aCdddD1aCeeeD2aCfffD3aCeeeD4aCaaaD5aC888L6a9aCbbbDaaCeeeDbaCfffLcadaCeeeLeafa"
++ "CcccD0bCeeeL1b2bCfffL3b4bCeeeD5bCbbbD6bC999D7bCaaaD8bCbbbD9bCdddDabCfffDbbCeeeLcbebCdddDfb"
++ "CcccD0cCdddD1cCeeeL2c7cCfffL8cacCeeeLbcdcCdddLecfc"
++ "CcccL0d1dCdddL2d4dCeeeL5dbdCdddLcdfd"
++ "CcccL0e2eCdddL3e9eCeeeLaebeCdddLcefe"
++ "CcccL0f1fCdddL2f3fCcccL4f5fCdddL6f9fCeeeLafdfCdddLefff";
+	}
 }
 
 
@@ -142,61 +337,6 @@ class FileFilter implements FilenameFilter
 		else
 			return false;
 	}
-}
-
-/**
- * Backup old event handlers for restore.
- */
-final void backupGui( imp )
-{
-	canvasKeyListeners = imp.getCanvas().getKeyListeners();
-	canvasMouseListeners = imp.getCanvas().getMouseListeners();
-	canvasMouseMotionListeners = imp.getCanvas().getMouseMotionListeners();
-	windowKeyListeners = imp.getWindow().getKeyListeners();
-	ijKeyListeners = IJ.getInstance().getKeyListeners();
-	
-	clearGui( imp );
-}
-
-/**
- * Remove both ours and the backed up event handlers.
- */
-final void clearGui( imp )
-{
-	for ( l : canvasKeyListeners )
-		imp.getCanvas().removeKeyListener( l );
-	for ( l : canvasMouseListeners )
-		imp.getCanvas().removeMouseListener( l );
-	for ( l : canvasMouseMotionListeners )
-		imp.getCanvas().removeMouseMotionListener( l );
-	for ( l : windowKeyListeners )
-		imp.getWindow().removeKeyListener( l );
-	for ( l : ijKeyListeners )
-		IJ.getInstance().removeKeyListener( l );
-	
-	imp.getCanvas().removeKeyListener( transformer );
-	imp.getCanvas().removeMouseListener( transformer );
-	imp.getCanvas().removeMouseMotionListener( transformer );
-	imp.getWindow().removeKeyListener( transformer );
-	IJ.getInstance().removeKeyListener( transformer );
-}
-
-/**
- * Restore the previously active Event handlers.
- */
-final void restoreGui( imp )
-{
-	clearGui( imp );
-	for ( l : canvasKeyListeners )
-		imp.getCanvas().addKeyListener( l );
-	for ( l : canvasMouseListeners )
-		imp.getCanvas().addMouseListener( l );
-	for ( l : canvasMousMotioneListeners )
-		imp.getCanvas().addMouseMotionListener( l );
-	for ( l : windowKeyListeners )
-		imp.getWindow().addKeyListener( l );
-	for ( l : ijKeyListeners )
-		IJ.getInstance().addKeyListener( l );
 }
 
 ImagePlus openImage( pathName )
@@ -221,15 +361,22 @@ ImagePlus openImage( pathName )
 		n = r.getImageCount();
 		w = r.getSizeX();
 		h = r.getSizeY();
+		l = r.getSizeT();
+		d = r.getSizeZ();
+		s = r.getSizeC();
+		
 		stack = new ImageStack( w, h );
 		lookupTable = new byte[ r.getSizeC() ][][];
-		for ( int i = 0; i < n; i++ )
-		{
-			ip = r.openProcessors( i )[ 0 ];
-			stack.addSlice( "" + ( i + 1 ), ip );
-			c = r.getZCTCoords( i )[ 1 ];
-			lookupTable[ c ] = r.get8BitLookupTable();
-		}
+		for ( int t = 0; t < l; ++t )
+			for ( int z = 0; z < d; ++z )
+				for ( int c = 0; c < s; ++c )
+				{
+					i = t * d * s + c * d + z;
+					ip = r.openProcessors( i )[ 0 ];
+					stack.addSlice( "" + ( i + 1 ), ip );
+					ci = r.getZCTCoords( i )[ 1 ];
+					lookupTable[ ci ] = r.get8BitLookupTable();
+				}
 		imp = new ImagePlus( pathName, stack );
 		calibration = imp.getCalibration();
 		calibration.pixelWidth = pw.doubleValue();
@@ -271,26 +418,41 @@ ImagePlus map( imp, transform, width, height )
 	return new CompositeImage( impMapped, CompositeImage.COMPOSITE );
 }
 
+void toggleCvTerm( String cvTerm )
+{
+	if ( cverm == null ) return;
+	i = cvTerms.indexOf( cvTerm );
+	if ( i > -1 )
+		cvTerms.remove( i );
+	else
+		cvTerms.add( cvTerm );
+}
+
+Roi writeCvTerms()
+{
+	i = 0;
+	for ( String cvTerm : eggChamberCvTerms )
+		IJ.log( ( i++ ) + ": " + cvTerm ); 
+}
+
+/* Process next file, depends on having a directory with imges selected */
 void nextFile()
 {
+	IJ.log( "nextFile" );
 	++fileIndex;
 	if ( impFile != null )
-	{
-		restoreGui( impFile );
 		impFile.close();
-	}
+
 	fileName = dir.getPath() + "/" + fileNameList[ fileIndex ];
 	impFile = openImage( fileName );
 	if ( impFile != null )
 	{
-		IJ.setTool("multipoint");
+		impFile.setRoi( null );
 		impFile.show();
-		backupGui( impFile );
-		impFile.getWindow().addKeyListener( transformer );
-		impFile.getCanvas().addKeyListener( transformer );
-		impFile.getCanvas().addMouseListener( transformer );
-		impFile.getCanvas().addMouseMotionListener( transformer );
-		IJ.getInstance().addKeyListener( transformer );
+//		transformer.run( "" );
+//		classifier.run( "" );
+//		IJ.setTool( "Transformer" );
+		IJ.setTool( transformerToolId );
 	}
 	else
 		IJ.log( "File `" + fileName + "' not found." );
@@ -299,6 +461,11 @@ void nextFile()
 /* Process next egg chamber, depends on having an image open and 3 points selected */
 void nextEggChamber()
 {
+	++eggChamberIndex;
+	eggChamberCvTerms.clear();
+	
+	IJ.log( "Egg chamber " + eggChamberIndex + " stage " + eggChamberStage );
+	
 	matches = new ArrayList();
 	matches.add( new PointMatch( points.get( 0 ), new Point( new float[]{ padding, resolution / 2 } ) ) );
 	matches.add( new PointMatch( points.get( 1 ), new Point( new float[]{ resolution - padding, resolution / 2 } ) ) );
@@ -314,11 +481,16 @@ void nextEggChamber()
 	previewTransform = new SimilarityModel2D();
 	previewTransform.fit( previewMatches );
 	
-	impTransform = map( impFile, transform, resolution, resolution );
-	impTransform.show();
+	impEggChamberTransform = map( impFile, transform, resolution, resolution );
+	impEggChamberTransform.show();
 	
-	impPreview = map( impFile, previewTransform, previewResolution, previewResolution );
-	impPreview.show();
+	impEggChamberPreview = map( impFile, previewTransform, previewResolution, previewResolution );
+	impEggChamberPreview.show();
+	
+//	transformer.unregisterTool();
+//	classifier.run( "" );
+//	IJ.setTool( "Classifier" );
+	IJ.setTool( classifierToolId );
 }
 
 dc = new DirectoryChooser( "Choose a directory" );
@@ -329,15 +501,22 @@ fileIndex = -1;
 impFile = null;
 fileNameList = null;
 transformer = new Transformer();
+classifier = new Classifier();
+transformer.run( "" );
+classifier.run( "" );
+transformerToolId = Toolbar.getInstance().getToolId( "Transformer" );
+classifierToolId = Toolbar.getInstance().getToolId( "Classifier" );
+IJ.setTool( "rectangle" );
 points = new ArrayList();
 targetIndex = -1;
 
-/* GUI */
-canvasKeyListeners = new ArrayList();
-canvasMouseListeners = new ArrayList();
-canvasMouseMotionListeners = new ArrayList();
-windowKeyListeners = new ArrayList();
-ijKeyListeners = new ArrayList();
+eggChamberIndex = -1;
+eggChamberStage = -1;
+impEggChamberPreview = null;
+impEggChamberTransform = null;
+eggChamberCvTerms = new ArrayList();
+
+/* main */
 	
 if ( dirName != null )
 {
