@@ -24,6 +24,7 @@ import ij.gui.*;
 
 import java.awt.event.*;
 import java.io.*;
+import java.util.*;
 
 import loci.formats.*;
 import loci.plugins.util.*;
@@ -35,8 +36,8 @@ import mpicbg.ij.util.*;
 
 fileExtension = "zvi";
 defaultDirectory = "/home/jambor/Desktop/AU11_ISH_Apotome";
-previewResolution = 200;
-previewPadding = 20;
+previewResolution = 400;
+previewPadding = 40;
 resolution = 64;
 padding = 4;
 
@@ -117,9 +118,89 @@ cvTerms = new String[][]
 };
 
 
+
+
+
+
+
+/* Tables */
+
+class FileEntry
+{
+	public String file;
+	public String gene;
+	public ArrayList eggChambers = new ArrayList();
+	
+	public FileEntry( String file, String gene )
+	{
+		this.file = file;
+		this.gene = gene;
+	}
+}
+
+class EggChamberEntry
+{
+	public float anteriorX;
+	public float anteriorY;
+	public float posteriorX;
+	public float posteriorY;
+	public float lateralX;
+	public float lateralY;
+	public double cy3Min;
+	public double cy3Max;
+	public int stage;
+	public ArrayList cvTerms = new ArrayList();  //!< Strings
+	
+	public FileEntry(
+			float anteriorX,
+			float anteriorY,
+			float posteriorX,
+			float posteriorY,
+			float lateralX,
+			float lateralY,
+			double cy3Min,
+			double cy3Max,
+			int stage )
+
+	{
+		this.anteriorX = anteriorX;
+		this.anteriorY = anteriorY;
+		this.posteriorX = posteriorX;
+		this.posteriorY = posteriorY;
+		this.lateralX = lateralX;
+		this.lateralY = lateralY;
+		this.cy3Min = cy3Min;
+		this.cy3Max = cy3Max;
+		this.stage = stage;
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+/* Fiji Tools */
+
 class Transformer extends AbstractTool implements KeyListener, MouseListener, MouseMotionListener
 {
+	Transformer()
+	{
+		super();
+		clearToolsIfNecessary = true;
+	}
+	
 	public void keyPressed( KeyEvent e )
+	{
+		e.consume();
+	}
+	
+	public void keyReleased( KeyEvent e )
 	{
 		if ( e.getKeyCode() == KeyEvent.VK_ESCAPE )
 		{
@@ -145,15 +226,19 @@ class Transformer extends AbstractTool implements KeyListener, MouseListener, Mo
 				eggChamberStage = 5;
 				
 			if ( points.size() == 3 )
-					nextEggChamber();
+			{
+				e.consume();
+				nextEggChamber();
+			}
 			else
 				IJ.error( "Please select in that exact order: 1. anterior pole, 2. posterior pole, 3. lateral pole" );
 		}
 		e.consume();
 	}
-	
-	public void keyReleased( KeyEvent e ) { e.consume(); }
-	public void keyTyped( KeyEvent e ) { e.consume(); }
+	public void keyTyped( KeyEvent e )
+	{
+		e.consume();
+	}
 	
 	public void mousePressed( MouseEvent e )
 	{
@@ -225,36 +310,52 @@ class Transformer extends AbstractTool implements KeyListener, MouseListener, Mo
 	
 	public String getToolIcon()
 	{
-		return "C999L0010CaaaD20C999D30CaaaD40CbbbL5070CaaaL80f0"
-+ "C888D01C999D11C888D21C666L3161C888L71d1C999De1CaaaDf1"
-+ "C888D02CaaaL1222C999L3242C888D52C777D62C666D72C000L8292C222Da2C444Db2C555Lc2d2C444De2C333Df2"
-+ "C888D03C777D13C666D23C555L3353C666D63C555D73C444L83c3C333Dd3C444Le3f3"
-+ "C888L0444C777D54C666D64C444D74C000L8494C222Da4C555Lb4c4C444Ld4f4"
-+ "C888D05C666D15C333D25C222D35C000L4595C333Da5C555Db5C666Lc5d5C555De5C444Df5"
-+ "C000L0616C333D26C888D36C000L4656C222D66C444D76CbbbD86C777D96C555Da6C000Db6C777Lc6f6"
-+ "C111D07C888D17CaaaL2737C000D47C222D57C333L6777C999D87C555D97C444Da7C000Db7C888Dc7CaaaDd7C999Le7f7"
-+ "C777D08CaaaD18CbbbD28CcccD38C000D48C333D58C777L6878C666D88C999D98CaaaDa8C888Db8CbbbDc8CdddDd8CcccDe8CbbbDf8"
-+ "C777D09CbbbD19CcccD29CdddD39C999D49C111D59C888L6979C999D89CbbbD99CaaaDa9C999Db9CeeeDc9CfffDd9CeeeDe9CdddDf9"
-+ "CbbbL0a1aCcccD2aCeeeL3a4aC888D5aC555D6aC666D7aC888D8aC999D9aCaaaDaaCdddDbaCfffLcadaCeeeDeaCdddDfa"
-+ "CbbbD0bCcccL1b2bCdddL3b5bCaaaD6bC888D7bCbbbD8bCcccD9bCdddDabCfffLbbcbCeeeDdbCdddLebfb"
-+ "CaaaD0cCbbbD1cCcccL2c3cCdddL4c5cCeeeL6c7cCfffL8c9cCeeeLacbcCdddLccfc"
-+ "CaaaD0dCbbbL1d2dCcccL3dadCdddLbdfd"
-+ "CbbbL0e1eCcccL2e5eCdddD6eCcccL7e9eCdddDaeCcccLbeeeCbbbDfe"
-+ "D0fCcccL1f6fCdddL7fafCcccDbfCbbbDcfCaaaLdfff";
+		return "CfffL00a0Cac9Db0C592Dc0C482Dd0C673De0CedcDf0"
+			+ "CfffL0191C8a6Da1C663Db1C462Dc1C673Dd1C251De1CffeDf1"
+			+ "CfffL0282CffeD92C9a5Da2C895Db2CfdaDc2Ca95Dd2C763De2CeecDf2"
+			+ "CfffL0383CbdaD93Caa4Da3Ccc8Db3CfdbDc3C492Dd3C783De3CfffDf3"
+			+ "L0484CccaD94C7a4Da4C492Db4C895Dc4Cb95Dd4C9a7De4CfffDf4"
+			+ "L0565CcdaD75Cac8D85Cad9D95C6a3Da5C8b4Db5C582Dc5C683Dd5CfffLe5f5"
+			+ "L0646C9b7D56C682D66Ca94D76Cfa8D86Cdb7D96C3a1Da6C7b4Db6Ccc9Dc6CfffLd6f6"
+			+ "L0727CdecD37C894D47Cfa8D57C391D67C741D77Cfc9D87Cdb7D97Cda5Da7C7a2Db7CffeDc7CfffLd7f7"
+			+ "L0818CeecD28C993D38Cfa7D48CfcaD58Cbc7D68Ccb8D78CedaD88Cab5D98C992Da8C7a2Db8CfffLc8f8"
+			+ "L0919C8a4D29Cc94D39Cc72D49CfdbL5979Ccc8D89Ceb8D99Cea7Da9C9c8Db9CfffLc9f9"
+			+ "D0aCbc9D1aCbb6D2aCeb8D3aCcc7D4aCfdbL5a6aCfdaD7aC371D8aC592D9aC9a4DaaCfffLbafa"
+			+ "D0bC6a4D1bCfcaD2bCec8D3bCcc7D4bCfdaL5b7bCcb6D8bC8a3D9bCddaDabCfffLbbfb"
+			+ "D0cC492D1cCfbaD2cCfdbD3cCfdaD4cC1a1D5cC191D6cCdc8D7cCcb6D8cCbc9D9cCfffLacfc"
+			+ "D0dC7a4D1dCec9D2dCfbaL3d4dC693D5dC461D6dC883D7dCcd9D8dCfffL9dfd"
+			+ "D0eCedbD1eC492D2eC6a3D3eC894D4eC8a4D5eC9b6D6eCffeD7eCfffL8efe"
+			+ "L0f1fCffeD2fCfdbD3fCfdcD4fCfffL5fff";
 	}
 }
 
 
 class Classifier extends AbstractTool implements KeyListener
 {
+	Classifier()
+	{
+		super();
+		clearToolsIfNecessary = true;
+	}
+	
 	public void keyPressed( KeyEvent e )
 	{
-		IJ.log( "key pressed" );
 		stageCvTerms = cvTerms[ eggChamberStage - 1 ];
 		if ( e.getKeyCode() == KeyEvent.VK_ESCAPE )
 		{
-			IJ.log( "Escape typed" );
-			nextFile();
+			impEggChamberPreview.close();
+			impEggChamberTransform.close();
+			IJ.selectWindow( impFile.getTitle() );
+			IJ.setTool( transformerToolId );
+		}
+		else if ( e.getKeyCode() == KeyEvent.VK_ENTER )
+		{
+			impEggChamberPreview.close();
+			impEggChamberTransform.close();
+			points.clear();
+			IJ.selectWindow( impFile.getTitle() );
+			impFile.setRoi( null );
+			IJ.setTool( transformerToolId );
 		}
 		else if (
 				e.getKeyCode() == KeyEvent.VK_1 ||
@@ -268,34 +369,44 @@ class Classifier extends AbstractTool implements KeyListener
 				e.getKeyCode() == KeyEvent.VK_9 ||
 				e.getKeyCode() == KeyEvent.VK_0 )
 		{
-			if ( e.getKeyCode() == KeyEvent.VK_1 )
-				toggleCvTerm( stageCvTerms[ 0 ] );
-			else if ( e.getKeyCode() == KeyEvent.VK_2 )
-				toggleCvTerm( stageCvTerms[ 1 ] );
-			else if ( e.getKeyCode() == KeyEvent.VK_3 )
-				toggleCvTerm( stageCvTerms[ 2 ] );
-			else if ( e.getKeyCode() == KeyEvent.VK_4 )
-				toggleCvTerm( stageCvTerms[ 3 ] );
-			else if ( e.getKeyCode() == KeyEvent.VK_5 )
-				toggleCvTerm( stageCvTerms[ 4 ] );
-			else if ( e.getKeyCode() == KeyEvent.VK_6 )
-				toggleCvTerm( stageCvTerms[ 5 ] );
-			else if ( e.getKeyCode() == KeyEvent.VK_7 )
-				toggleCvTerm( stageCvTerms[ 6 ] );
-			else if ( e.getKeyCode() == KeyEvent.VK_8 )
-				toggleCvTerm( stageCvTerms[ 7 ] );
-			else if ( e.getKeyCode() == KeyEvent.VK_9 )
-				toggleCvTerm( stageCvTerms[ 8 ] );
-			else if ( e.getKeyCode() == KeyEvent.VK_0 )
-				toggleCvTerm( stageCvTerms[ 9 ] );
+			try
+			{
+				if ( e.getKeyCode() == KeyEvent.VK_1 )
+					toggleCvTerm( stageCvTerms[ 0 ] );
+				else if ( e.getKeyCode() == KeyEvent.VK_2 )
+					toggleCvTerm( stageCvTerms[ 1 ] );
+				else if ( e.getKeyCode() == KeyEvent.VK_3 )
+					toggleCvTerm( stageCvTerms[ 2 ] );
+				else if ( e.getKeyCode() == KeyEvent.VK_4 )
+					toggleCvTerm( stageCvTerms[ 3 ] );
+				else if ( e.getKeyCode() == KeyEvent.VK_5 )
+					toggleCvTerm( stageCvTerms[ 4 ] );
+				else if ( e.getKeyCode() == KeyEvent.VK_6 )
+					toggleCvTerm( stageCvTerms[ 5 ] );
+				else if ( e.getKeyCode() == KeyEvent.VK_7 )
+					toggleCvTerm( stageCvTerms[ 6 ] );
+				else if ( e.getKeyCode() == KeyEvent.VK_8 )
+					toggleCvTerm( stageCvTerms[ 7 ] );
+				else if ( e.getKeyCode() == KeyEvent.VK_9 )
+					toggleCvTerm( stageCvTerms[ 8 ] );
+				else if ( e.getKeyCode() == KeyEvent.VK_0 )
+					toggleCvTerm( stageCvTerms[ 9 ] );
+			}
+			catch ( e )
+			{
 				
-			writeCvTerms();
+			}
+				
+			impEggChamberPreview.setOverlay( writeCvTerms() );
 		}
 		e.consume();
 	}
 	
 	public void keyReleased( KeyEvent e ) { e.consume(); }
-	public void keyTyped( KeyEvent e ) { e.consume(); }
+	public void keyTyped( KeyEvent e )
+	{
+		e.consume();
+	}
 
 	public String getToolName()
 	{
@@ -304,25 +415,34 @@ class Classifier extends AbstractTool implements KeyListener
 	
 	public String getToolIcon()
 	{
-		return "CaaaL0010C999D20CaaaL3040CbbbL5070CaaaD80C999L90a0C888Db0C777Dc0C888Ld0e0C999Df0"
-+ "L0121CaaaL3141CbbbL5161CaaaL71c1C999Ld1f1"
-+ "C888L0222C999D32CaaaL4262CbbbL7292CaaaDa2C888Db2C999Lc2d2CaaaLe2f2"
-+ "C888D03C777D13C666D23C444D33C555D43C666D53C888D63C999L7383CaaaD93CbbbLa3d3CcccLe3f3"
-+ "C666L0424C555L3444C222D54C000D64C333D74C444L8494C666La4b4C888Dc4C999Dd4CbbbLe4f4"
-+ "C333L0515C555D25C444D35C000L4575C111D85C000L95a5C333Db5C999Dc5C888Dd5C777De5C666Df5"
-+ "D06C777L1626C999D36C444D46C000D56C555D66CdddL7686C888D96C666Da6C555Db6CbbbDc6CdddLd6e6CaaaDf6"
-+ "C888D07C999D17CbbbD27CdddD37C000D47C444D57C666L6777C888D87C777L97b7CaaaDc7CeeeDd7CfffDe7CdddDf7"
-+ "C888D08CbbbD18CdddL2838C555D48C777D58C999D68C888D78CcccL8898CaaaDa8C999Db8CdddDc8CfffLd8e8CeeeDf8"
-+ "CaaaD09CcccD19CeeeL2939CaaaD49C888D59CaaaL6979CcccL8999C999La9b9CfffLc9e9CeeeDf9"
-+ "CcccD0aCdddD1aCeeeD2aCfffD3aCeeeD4aCaaaD5aC888L6a9aCbbbDaaCeeeDbaCfffLcadaCeeeLeafa"
-+ "CcccD0bCeeeL1b2bCfffL3b4bCeeeD5bCbbbD6bC999D7bCaaaD8bCbbbD9bCdddDabCfffDbbCeeeLcbebCdddDfb"
-+ "CcccD0cCdddD1cCeeeL2c7cCfffL8cacCeeeLbcdcCdddLecfc"
-+ "CcccL0d1dCdddL2d4dCeeeL5dbdCdddLcdfd"
-+ "CcccL0e2eCdddL3e9eCeeeLaebeCdddLcefe"
-+ "CcccL0f1fCdddL2f3fCcccL4f5fCdddL6f9fCeeeLafdfCdddLefff";
+		return "CfffL0050CffeD60CefeL7080CfffL90f0"
+			+ "L0121CefdD31CdebD41C895D51C563D61C352D71C896D81CcebD91CfffDa1CefeDb1CfffLc1e1CffeDf1"
+			+ "CfffL0212CefdD22Caa6D32C231D42C630D52C850D62Ca41D72C740D82C330D92C473Da2CdecDb2CfffLc2f2"
+			+ "D03CefeD13Cb95D23C120D33C972D43Ca82D53C340D63Cc73D73Cf74D83Cb72D93C430Da3C231Db3CadaDc3CfffDd3CedaDe3C340Df3"
+			+ "CfffD04CedbD14C020D24C872D34Cea5D44C982D54C420D64C762D74Cd83D84C371D94C020Da4Ca51Db4C441Dc4CdebDd4C886De4C340Df4"
+			+ "CefeD05Ca85D15C451D25Ce95D35Cca4D45C670D55C671D65Cb94D75Cca5D85C371D95C100Da5Cc62Db5Cb62Dc5C585Dd5C664De5C571Df5"
+			+ "CefeD06C863D16C872D26Cf94D36Cba4D46C281D56C992D66Cdb6D76Cbb5D86C983D96C320Da6Cc82Db6Ce94Dc6C571Dd6C462De6C451Df6"
+			+ "CefeD07C441D17C983D27Cd94D37Ccb6D47C4a1D57Caa4D67Cca4D77Cdc7D87Cdb6L97a7Cba4Db7Cb82Dc7C771Dd7C260De7C571Df7"
+			+ "CefeD08C662D18Ca82D28Ce95D38Cda5D48Ccb5L5868Cba4D78Cbb5D88Ccb6L98a8C591Db8C571Dc8C550Dd8C150Le8f8"
+			+ "CfffD09C995D19C341D29Cf73D39Cda4D49C482D59C582D69Cbb5D79Ccb5D89Cab5D99Cbb6Da9C793Db9C470Dc9C961Dd9C140De9C360Df9"
+			+ "CfffD0aCfdbD1aC230D2aCa82D3aCf84D4aC030D5aC040D6aCba4D7aCbb5D8aC370D9aC250DaaCd94DbaC751DcaC340DdaC140DeaC8d6Dfa"
+			+ "CfffL0b1bCb85D2bC330D3bCd83D4bC120D5bC010D6bC783D7bCca4D8bC240D9bC010DabCb83DbbC761DcbC130DdbC260DebCcd9Dfb"
+			+ "CfffL0c1cCeedD2cC953D3cC441D4cC751D5cC662D7cCea6D8cC561D9cC020DacCc83DbcCb52DccC130DdcC8c8DecCdfdDfc"
+			+ "CfffL0d2dCefdD3dC974D4dC230D5dC520D6dCb62D7dCe95D8dCb72D9dC570DadC551DbdC130DcdC9c8DddCefeDedCfffDfd"
+			+ "L0e3eCefeD4eCcc9D5eC663D6eC130D7eC140D8eC120D9eC541DaeCa85DbeCefdDceCefeDdeCfffLeefe"
+			+ "L0f5fCefeD6fCdfcD7fCeebD8fCefcD9fCffeDafCfffLbfff"
+;
 	}
 }
 
+
+
+
+
+
+
+
+/* Utilities */
 
 class FileFilter implements FilenameFilter
 {
@@ -420,20 +540,38 @@ ImagePlus map( imp, transform, width, height )
 
 void toggleCvTerm( String cvTerm )
 {
-	if ( cverm == null ) return;
-	i = cvTerms.indexOf( cvTerm );
+	if ( cvTerm == null ) return;
+	i = eggChamberCvTerms.indexOf( cvTerm );
 	if ( i > -1 )
-		cvTerms.remove( i );
+		eggChamberCvTerms.remove( i );
 	else
-		cvTerms.add( cvTerm );
+		eggChamberCvTerms.add( cvTerm );
 }
 
-Roi writeCvTerms()
+Overlay writeCvTerms()
 {
 	i = 0;
-	for ( String cvTerm : eggChamberCvTerms )
-		IJ.log( ( i++ ) + ": " + cvTerm ); 
+	Collections.sort( eggChamberCvTerms );
+	rois = new Overlay();
+	rois.add( new TextRoi( 0, 0, "" ) );
+	rois.add( new TextRoi( 0, 0, "" ) );
+	
+	for ( i = 0; i < eggChamberCvTerms.size(); ++i )
+	{
+		roi = new TextRoi( 4, i * 12 + 2, i + ": " + eggChamberCvTerms.get( i ), new Font( "SansSerif", Font.PLAIN, 9 ) );
+		rois.add( roi );
+	}
+	return rois;
 }
+
+
+
+
+
+
+
+
+/* Pipeline */
 
 /* Process next file, depends on having a directory with imges selected */
 void nextFile()
@@ -442,6 +580,12 @@ void nextFile()
 	++fileIndex;
 	if ( impFile != null )
 		impFile.close();
+		
+	if ( fileIndex >= fileNameList.length )
+	{
+		saveAndExit();
+		return;
+	}
 
 	fileName = dir.getPath() + "/" + fileNameList[ fileIndex ];
 	impFile = openImage( fileName );
@@ -449,9 +593,7 @@ void nextFile()
 	{
 		impFile.setRoi( null );
 		impFile.show();
-//		transformer.run( "" );
-//		classifier.run( "" );
-//		IJ.setTool( "Transformer" );
+
 		IJ.setTool( transformerToolId );
 	}
 	else
@@ -487,9 +629,6 @@ void nextEggChamber()
 	impEggChamberPreview = map( impFile, previewTransform, previewResolution, previewResolution );
 	impEggChamberPreview.show();
 	
-//	transformer.unregisterTool();
-//	classifier.run( "" );
-//	IJ.setTool( "Classifier" );
 	IJ.setTool( classifierToolId );
 }
 
