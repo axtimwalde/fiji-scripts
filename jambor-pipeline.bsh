@@ -553,8 +553,8 @@ Overlay writeCvTerms()
 	i = 0;
 	Collections.sort( eggChamberCvTerms );
 	rois = new Overlay();
-	rois.add( new TextRoi( 0, 0, "" ) );
-	rois.add( new TextRoi( 0, 0, "" ) );
+//	rois.add( new TextRoi( 0, 0, "" ) );
+//	rois.add( new TextRoi( 0, 0, "" ) );
 	
 	for ( i = 0; i < eggChamberCvTerms.size(); ++i )
 	{
@@ -639,6 +639,10 @@ dir = null;
 fileIndex = -1;
 impFile = null;
 fileNameList = null;
+
+/* clear Toolbar, requires toolsets/Clear Custom Tools.txt */
+IJ.run( "Install...", "install=[" + IJ.getDirectory( "macros" ) + "toolsets/Clear Custom Tools.txt]" );
+
 transformer = new Transformer();
 classifier = new Classifier();
 transformer.run( "" );
