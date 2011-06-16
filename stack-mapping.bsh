@@ -1,0 +1,94 @@
+import ij.ImagePlus;
+import ij.process.ImageProcessor;
+import ij.IJ;
+import ij.measure.Calibration;
+import mpicbg.ij.stack.InverseTransformMapping;
+import mpicbg.models.TranslationModel3D;
+import mpicbg.models.AffineModel3D;
+import mpicbg.models.InverseCoordinateTransformList;
+
+am = new float[]{
+	sin, 0.0f, cos, 0.0f,
+	0.0f, 1.0f, 0.0f, 0.0f,
+	cos, 0.0f, -sin, 0.0f };
+	
+// am = new float[]{
+//	-0.010760121f, -0.003578307f, 0.9999361f, 0.0f,
+//	-0.8556553f, 0.5174942f, -0.0073560514f, 0.0f,
+//	-0.51743555f, -0.8556801f, -0.008630178f, 0.0f };
+
+
+imp = IJ.getImage();
+
+/* un-scale */
+c = imp.getCalibration();
+zFactor = ( float )( c.pixelDepth / c.pixelWidth );
+unScale = new AffineModel3D();
+unScale.set(
+	1.0f, 0.0f, 0.0f, 0.0f,
+	0.0f, 1.0f, 0.0f, 0.0f,
+	0.0f, 0.0f, zFactor, 0.0f );
+
+/* center shift */
+centerShift = new TranslationModel3D();
+centerShift.set( -imp.getWidth() / 2, -imp.getHeight() / 2, -imp.getStack().getSize() / 2 * zFactor );
+
+/* center un-shift */
+centerUnShift = new TranslationModel3D();
+centerUnShift.set( imp.getWidth() / 2, imp.getHeight() / 2, imp.getStack().getSize() / 2 * zFactor );
+
+/* rotation */
+float cos = ( float )Math.cos( 0.34906585 );
+float sin = ( float )Math.sin( 0.34906585 );
+rotation = new AffineModel3D();
+rotation.set(
+	am[ 0 ], am[ 1 ], am[ 2 ], am[ 3 ],
+	am[ 4 ], am[ 5 ], am[ 6 ], am[ 7 ],
+	am[ 8 ], am[ 9 ], am[ 10 ], am[ 11 ] );
+
+transform = new AffineModel3D();
+transform.preConcatenate( unScale );
+transform.preConcatenate( centerShift );
+transform.preConcatenate( rotation );
+transform.preConcatenate( centerUnShift );
+
+/* bounding volume */
+min = new float[]{ 0, 0, 0 };
+max = new float[]{ imp.getWidth(), imp.getHeight(), imp.getStack().getSize() };
+transform.estimateBounds( min, max );
+w = ( int )Math.ceil( max[ 0 ] - min[ 0 ] );
+h = ( int )Math.ceil( max[ 1 ] - min[ 1 ] );
+d = ( int )Math.ceil( max[ 2 ] - min[ 2 ] );
+
+/* bounding volume offset */
+minShift = new TranslationModel3D();
+minShift.set( -min[ 0 ], -min[ 1 ], -min[ 2 ] );
+transform.preConcatenate( minShift );
+
+/* render target stack */
+mapping = new InverseTransformMapping( transform );
+
+ip = imp.getStack().getProcessor( 1 ).createProcessor( imp.getWidth(), imp.getHeight() );
+targetStack = new ImageStack( w, h );
+
+for ( s = 0; s < d; ++s )
+{
+	ip = ip.createProcessor( w, h );
+	mapping.setSlice( s );
+	try
+	{
+		mapping.mapInterpolated( imp.getStack(), ip );
+	}
+	catch ( Exception e )
+	{
+		e.printStackTrace();
+	}
+	targetStack.addSlice( "", ip );
+}
+
+/* set proper calibration (it's isotropic at the former x,y-scale now) */
+impTarget = new ImagePlus( "target", targetStack );
+calibration = imp.getCalibration().copy();
+calibration.pixelDepth = calibration.pixelWidth;
+impTarget.setCalibration( calibration );
+impTarget.show();
