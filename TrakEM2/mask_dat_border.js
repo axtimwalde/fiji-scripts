@@ -12,11 +12,11 @@ for ( var i = 0; i < layers.size(); ++i )
 	{
 		var p = patches.get( j );
 		var mask = IJ.createImage( "mask", "8-bit black", p.getOWidth(), p.getOHeight(), 1 ).getProcessor();
-		mask.setRoi( new Roi( 9, 9, p.getOWidth() - 18, p.getOHeight() - 18 ) );
+		mask.setRoi( new Roi( 4, 4, p.getOWidth() - 8, p.getOHeight() - 8 ) );
 		mask.setValue( 255 );
 		mask.fill();
 		p.setAlphaMask( mask );
-		p.updateMipmaps();
+		p.updateMipMaps();
 	}
 }
 
