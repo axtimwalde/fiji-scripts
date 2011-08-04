@@ -1,0 +1,2 @@
+mpicbg.ij.clahe.FastFlat.run( imp, 383, 256, 2, null );
+
