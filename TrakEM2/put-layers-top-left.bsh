@@ -23,6 +23,8 @@ for ( int i = firstLayer; i <= lastLayer; ++i )
 	{
 		at = patch.getAffineTransform();
 		at.translate( -minX, -minY );
+		patch.updateInDatabase( "transform" );
+		patch.updateBucket();
 	}
 	Display.repaint();
 }
