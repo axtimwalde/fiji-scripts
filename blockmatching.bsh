@@ -1,0 +1,86 @@
+import mpicbg.ij.blockmatching.*;
+import mpicbg.models.*;
+
+blockRadius = searchRadius = 50;
+
+minR = 0.1f;
+rodR = 1.0f;
+maxCurvatureR = 1000.0f;
+
+localRegionSigma = 65.0f;
+maxLocalEpsilon = 12.0f;
+maxLocalTrust = 3.0f;
+
+meshResolution = 24;
+
+FloatProcessor createMask( ImageProcessor source )
+{
+	mask = new FloatProcessor( source.getWidth(), source.getHeight() );
+	maskColor = 0x0000ff00;
+	n = source.getWidth() * source.getHeight();
+	maskPixels = mask.getPixels();
+	for ( int i = 0; i < n; ++i )
+	{
+		sourcePixel = source.get( i ) & 0x00ffffff;
+		if ( sourcePixel == maskColor )
+			maskPixels[ i ] = 0;
+		else
+			maskPixels[ i ] = 1;
+	}
+	return mask;
+}
+
+stack = IJ.getImage().getStack();
+
+mesh = new SpringMesh( meshResolution, stack.getWidth(), stack.getHeight(), 1, 1000, 1 );
+
+pm12 = new ArrayList();
+
+v1 = mesh.getVertices();
+
+ip1 = stack.getProcessor( 1 ).convertToFloat().duplicate();
+ip2 = stack.getProcessor( 2 ).convertToFloat().duplicate();
+			
+ip1Mask = createMask( stack.getProcessor( 1 ) );
+ip2Mask = createMask( stack.getProcessor( 2 ) );
+
+ct = new TranslationModel2D();
+
+BlockMatching.matchByMaximalPMCC(
+		ip1,
+		ip2,
+		ip1Mask,
+		ip2Mask,
+		1.0f,
+		ct,
+		blockRadius,
+		blockRadius,
+		searchRadius,
+		searchRadius,
+		minR,
+		rodR,
+		maxCurvatureR,
+		v1,
+		pm12,
+		new ErrorStatistic( 1 ) );
+
+new RigidModel2D().localSmoothnessFilter( pm12, pm12, localRegionSigma, maxLocalEpsilon, maxLocalTrust );
+		
+pm12Sources = new ArrayList();
+pm12Targets = new ArrayList();
+
+PointMatch.sourcePoints( pm12, pm12Sources );
+PointMatch.targetPoints( pm12, pm12Targets );
+
+roi1 = mpicbg.ij.util.Util.pointsToPointRoi( pm12Sources );
+roi2 = mpicbg.ij.util.Util.pointsToPointRoi( pm12Targets );
+
+imp1 = new ImagePlus( "1", stack.getProcessor( 1 ) );
+imp2 = new ImagePlus( "2", stack.getProcessor( 2 ) );
+
+imp1.setRoi( roi1 );
+imp2.setRoi( roi2 );
+
+imp1.show();
+imp2.show();
+
