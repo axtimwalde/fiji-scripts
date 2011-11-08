@@ -1,0 +1,17 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+
+ip = new ShortProcessor( 458, 458 );
+reader = new BufferedReader( new FileReader( "/home/saalfeld/workspace/papers/elastic-alignment/material/log-458-splot.txt" ) );
+for ( line = reader.readLine(); line != null; line = reader.readLine() )
+{
+	numberStrings = line.split( " " );
+	x = Integer.parseInt( numberStrings[ 0 ] );
+	y = Integer.parseInt( numberStrings[ 1 ] );
+	f = Integer.parseInt( numberStrings[ 2 ] );
+	ip.putPixel( x, y, f );
+}
+
+new ImagePlus( "splot", ip ).show();
+	
