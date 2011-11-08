@@ -1,0 +1,90 @@
+/**
+ * This script takes two related TrakEM2 projects as input.  Project1 is a
+ * downscaled version of Project2 with respective patches having the same id.
+ * Project1 patches are transformed and Project2 patches will inherit a scaled
+ * up version of this transformation.
+ */
+
+import ij.*;
+import ij.gui.*;
+ 
+ import ini.trakem2.*;
+import ini.trakem2.display.*;
+import mpicbg.trakem2.transform.*;
+
+project1 = null;
+project2 = null;
+scale = 4.0f;
+
+boolean setup()
+{
+	gd = new GenericDialog( "Scale Deformation" );
+	
+	projects = Project.getProjects();		
+	if ( projects.size() < 2 )
+		return false;
+	
+	projectNames = new String[ projects.size() ];
+	for ( i = 0; i < projects.size(); ++i )
+		projectNames[ i ] = projects.get( i ).toString();
+	
+	gd.addChoice( "Project_1 :", projectNames, projectNames[ 0 ] );
+	gd.addChoice( "Project_2 :", projectNames, projectNames[ 1 ] );
+
+	gd.showDialog();
+	if ( gd.wasCanceled() ) return false;
+	
+	project1 = projects.get( gd.getNextChoiceIndex() );
+	project2 = projects.get( gd.getNextChoiceIndex() );
+	
+	return true;
+}
+
+void run()
+{
+	if ( !setup() ) return;
+	
+	IJ.log( "scaling..." );
+	
+	/* assuming same order */	
+	patches1 = project1.getRootLayerSet().getDisplayables( Patch.class );
+	patches2 = project2.getRootLayerSet().getDisplayables( Patch.class );
+	
+	for ( i = 0; i < patches1.size(); ++i )
+	{
+		smallPatch = patches1.get( i );
+		bigPatch = patches2.get( i );
+		
+		/* Get CT and affine from small patch */
+		smallPatchCT = smallPatch.getCoordinateTransform().copy();
+		smallPatchAffine = smallPatch.getAffineTransformCopy();
+		smallPatchBox = smallPatch.getCoordinateTransformBoundingBox();
+		smallPatchAffine.translate( -smallPatchBox.x, -smallPatchBox.y );
+		smallPatchAffineModel = new AffineModel2D();
+		smallPatchAffineModel.set( smallPatchAffine );
+
+		/* Prepare the new coordinate transform */
+		scaledown = new AffineModel2D();
+		scaledown.set( ( 1.0f / scale ), 0, 0, ( 1.0f / scale ), 0, 0 );
+		scaleup = new AffineModel2D();
+		scaleup.set( scale, 0, 0, scale, 0, 0 );
+		ctList = new CoordinateTransformList();
+		ctList.add( scaledown );
+		ctList.add( smallPatchCT );
+		ctList.add( smallPatchAffineModel );
+		ctList.add( scaleup );
+
+		/* Assign */
+		bigPatch.setCoordinateTransform( ctList );
+	
+		IJ.showProgress( i + 1, patches1.size() );
+	}
+	
+	for ( patch : patches2 )
+		patch.updateMipMaps();
+		
+	Display.repaint();
+}
+
+run();
+
