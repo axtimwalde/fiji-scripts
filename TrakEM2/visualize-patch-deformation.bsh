@@ -1,0 +1,84 @@
+import ini.trakem2.display.*;
+import mpicbg.trakem2.transform.*;
+import mpicbg.ij.util.*;
+import mpicbg.models.Model;
+
+ImageProcessor visualizeDifference( w, h, ct1, ct2 )
+{
+	ip = new FloatProcessor( w, h );
+	for ( y = 0; y < h; ++y )
+	{
+		for ( x = 0; x < w; ++x )
+		{
+			l1 = new float[]{ x * sx, y * sy };
+			l2 = new float[]{ x * sx, y * sy };
+			ct1.applyInPlace( l1 );
+			ct2.applyInPlace( l2 );
+			dx = l1[ 0 ] - l2[ 0 ];
+			dy = l1[ 1 ] - l2[ 1 ];
+			d = Math.sqrt( dx * dx + dy * dy );
+			ip.setf( x, y, ( float )d );
+		}
+	}
+	//matrix.copyBits( ip, i * 256, j * 256, Blitter.COPY );
+	return ip;
+}
+
+ImageProcessor visualizeDifferenceVectors( w, h, ct1, ct2, max )
+{
+	ip = new ColorProcessor( w, h );
+	for ( y = 0; y < h; ++y )
+	{
+		for ( x = 0; x < w; ++x )
+		{
+			l1 = new float[]{ x * sx, y * sy };
+			l2 = new float[]{ x * sx, y * sy };
+			ct1.applyInPlace( l1 );
+			ct2.applyInPlace( l2 );
+			dx = ( l1[ 0 ] - l2[ 0 ] ) / max;
+			dy = ( l1[ 1 ] - l2[ 1 ] ) / max;
+			ip.set( x, y, mpicbg.ij.util.Util.colorVector( dx, dy ) );
+		}
+	}
+	return ip;
+}
+
+Model sampleModel( ct, modelClass, width, height )
+{
+	model = modelClass.newInstance();
+	matches = new ArrayList();
+	float scaleX = ( ( float )width - 1.0f ) / 63.0f;
+	float scaleY = ( ( float )height - 1.0f ) / 63.0f;
+	for ( y = 0; y < 64; ++y )
+	{
+		float ys = scaleY * y;
+		for ( x = 0; x < 64; ++x )
+		{
+			float xs = scaleX * x;
+			p = new mpicbg.models.Point( new float[]{ xs, ys } );
+			p.apply( ct );
+			matches.add( new mpicbg.models.PointMatch( p, p ) );
+		}
+	}
+	model.fit( matches );
+	return model;
+}
+
+
+
+w = 256;
+h = 256;
+max = 250;
+
+p = Display.getFront().getActive();
+
+sx = ( double )p.getOWidth() / w;
+sy = ( double )p.getOHeight() / h;
+
+ct = p.getCoordinateTransform();
+
+/* fit a simple linear model to compare with using some transferred samples */
+t = sampleModel( ct, RigidModel2D.class, p.getWidth(), p.getHeight() );
+
+new ImagePlus( "patch deformation", visualizeDifferenceVectors( w, h, ct, t, max ) ).show();
+
