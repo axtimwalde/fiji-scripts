@@ -1,0 +1,35 @@
+import mpicbg.trakem2.transform.*;
+
+CoordinateTransform combineTransform( patch )
+{
+	ct = patch.getCoordinateTransform();
+	if ( ct == null ) {
+		affine = new AffineModel2D();
+		affine.set( patch.getAffineTransform() );
+		ct = affine;
+	}
+	else
+	{
+		box = patch.getCoordinateTransformBoundingBox();
+		at = patch.getAffineTransformCopy();
+		at.translate( -box.x, -box.y );
+		affine = new AffineModel2D();
+		affine.set( at );
+				
+		ctl = new CoordinateTransformList();
+		ctl.add( ct );
+		ctl.add( affine );		
+		ct = ctl;
+	}
+	return ct;
+}
+
+i = 0;
+for ( layer : Display.getFront().getLayerSet().getLayers() ) {
+	patches = layer.getDisplayables( Patch.class );
+	IJ.log( "Section " + ( ++i ) + ":" );
+	if ( patches.size() > 0 )
+		IJ.log( combineTransform( patches.get( 0 ) ).toXML( "" ) );
+	else
+		IJ.log( "No image, no transform." );
+}
