@@ -1,0 +1,51 @@
+import java.util.*;
+
+int k = 0; 
+HashMap images = new HashMap(); 
+void makeAverage( average, weightedParts) { 
+  weights = new ArrayList(weightedParts.keySet()); 
+  Collections.sort(weights); 
+  int s = 0; 
+  for (int w : weights) { 
+    s += w; 
+    average.multiply(1.0-(double)w/s); 
+    fp = weightedParts.get(w).duplicate(); 
+    fp.multiply((double)w/s);
+    average.copyBits(fp,0,0,Blitter.ADD); 
+  } 
+}
+imp = IJ.getImage();
+stack = imp.getStack(); 
+w = imp.getWidth();
+h = imp.getHeight();
+ip = new FloatProcessor(w, h); 
+for (int i = 0; i < stack.getSize();) {
+  ++k;
+  a = imp.getType() == ImagePlus.GRAY32 ?
+      stack.getProcessor(++i).duplicate() :
+      stack.getProcessor(++i).convertToFloat();
+  int w = 1;
+  FloatProcessor b = images.remove(w);
+  while (b != null) {
+    w *= 2;
+    a.copyBits(b, 0, 0, Blitter.ADD);
+    a.multiply(0.5);
+    b = images.remove(w);
+  }
+  images.put(w, a);
+  IJ.showProgress( i, stack.getSize() );
+}
+makeAverage(ip, images);
+switch (IJ.getImage().getType()) {
+case ImagePlus.GRAY16:
+  ip = ip.convertToShort(false);
+  break;
+case ImagePlus.GRAY8:
+case ImagePlus.COLOR_256:
+  ip = ip.convertToByte(false);
+  break;
+case ImagePlus.COLOR_RGB:
+  ip = ip.convertToRGB();
+  break;
+}
+new ImagePlus("", ip).show();
