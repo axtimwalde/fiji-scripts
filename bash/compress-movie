@@ -1,0 +1,8 @@
+#!/bin/bash
+ffmpeg -i 48.avi -f mov -pass 1 -vcodec libx264
+-vpre /usr/share/ffmpeg/libx264-slowfirstpass.ffpreset -b 400kb -s
+384x384 48.mov
+
+ffmpeg -i 48.avi -f mov -pass 2 -vcodec libx264
+-vpre /usr/share/ffmpeg/libx264-default.ffpreset -b 400kb -s 384x384
+48.mov
