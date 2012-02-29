@@ -11,6 +11,7 @@ for ( line = reader.readLine(); line != null; line = reader.readLine() )
 	y = Integer.parseInt( numberStrings[ 1 ] );
 	f = Integer.parseInt( numberStrings[ 2 ] );
 	ip.putPixel( x, y, f );
+//	ip.putPixel( x, y - x + 8, f );
 }
 
 new ImagePlus( "splot", ip ).show();
