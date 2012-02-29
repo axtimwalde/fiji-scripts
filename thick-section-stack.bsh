@@ -1,0 +1,72 @@
+import java.util.*;
+
+n = 10;
+
+void makeAverage( average, weightedParts) { 
+  weights = new ArrayList(weightedParts.keySet()); 
+  Collections.sort(weights); 
+  int s = 0; 
+  for (int w : weights) { 
+    s += w; 
+    average.multiply(1.0-(double)w/s); 
+    fp = weightedParts.get(w).duplicate(); 
+    fp.multiply((double)w/s);
+    average.copyBits(fp,0,0,Blitter.ADD); 
+  } 
+}
+
+ImageProcessor averageStack(stack) {
+	HashMap images = new HashMap();
+	ip = new FloatProcessor(w, h);
+	for (int i = 0; i < stack.getSize();) {
+		a = imp.getType() == ImagePlus.GRAY32 ?
+			stack.getProcessor(++i).duplicate() :
+			stack.getProcessor(++i).convertToFloat();
+		int w = 1;
+		FloatProcessor b = images.remove(w);
+		while (b != null) {
+			w *= 2;
+			a.copyBits(b, 0, 0, Blitter.ADD);
+			a.multiply(0.5);
+			b = images.remove(w);
+		}
+		images.put(w, a);
+	}
+	makeAverage(ip, images);
+	switch (IJ.getImage().getType()) {
+	case ImagePlus.GRAY16:
+	  ip = ip.convertToShort(false);
+	  break;
+	case ImagePlus.GRAY8:
+	case ImagePlus.COLOR_256:
+	  ip = ip.convertToByte(false);
+	  break;
+	case ImagePlus.COLOR_RGB:
+	  ip = ip.convertToRGB();
+	  break;
+	}
+	return ip;
+}
+
+imp = IJ.getImage();
+stack = imp.getStack(); 
+w = imp.getWidth();
+h = imp.getHeight();
+
+stack2 = new ImageStack(w, h);
+imp2;
+stack3 = new ImageStack(w, h);
+for (int i = 0; i < stack.getSize();) {
+	stack3.addSlice("",stack.getProcessor(++i));
+	if (i % n == 0) {
+		stack2.addSlice("",averageStack(stack3));
+		stack3 = new ImageStack(w, h);
+		if (i == n) {
+			imp2 = new ImagePlus("10", stack2);
+			imp2.show();
+		}
+		imp2.setStack(stack2);
+		imp2.updateAndDraw();
+	}
+	IJ.showProgress(i, stack.getSize());
+}
