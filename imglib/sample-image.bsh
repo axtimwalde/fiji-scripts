@@ -1,0 +1,28 @@
+rnd = new java.util.Random( 12345 );
+ip = IJ.getImage().getProcessor();
+
+coordinates = "{ ";
+samples = "{ ";
+for ( int i = 0; i < 1000; )
+{
+	x = rnd.nextInt( ip.getWidth() );
+	y = rnd.nextInt( ip.getHeight() );
+
+	v = ip.getPixel( x, y );
+	if ( v < 65535 )
+	{
+		if ( i != 0 )
+		{
+			coordinates += ", ";
+			samples += ", ";
+		}
+		coordinates += "{ " + x + ", " + y + " }";
+		samples += v;
+		ip.putPixel( x, y, 65535 );
+		++i;
+	}
+}
+coordinates += " }";
+samples += " }";
+IJ.log( coordinates );
+IJ.log( samples );
