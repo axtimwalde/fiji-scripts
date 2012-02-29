@@ -1,0 +1,51 @@
+ip = IJ.getImage().getProcessor();
+
+double pi2 = Math.PI * 2;
+double gr = ( 1.0 + Math.sqrt( 5.0 ) ) / 2.0;
+double goldenAngle = ( 3 - Math.sqrt( 5 ) ) * Math.PI;
+
+double rotateByGoldenAngle( double phi )
+{
+	phi += goldenAngle;
+	if ( phi > Math.PI )
+		phi -= pi2;
+	return phi;
+}
+
+int n = 1000;
+double tx = ip.getWidth() - ip.getWidth() / gr;
+double ty = ip.getHeight() - ip.getHeight() / gr;
+double dr = 80.0 * ip.getWidth() / n;
+coordinates = "{ ";
+samples = "{ ";
+double phi = 0;
+double r = 0;
+int sample = 0;
+for ( int i = 0; i < n; ++i )
+{
+	double cos = Math.cos( phi ) * r + tx;
+	double sin = Math.sin( phi ) * r + ty;
+	
+	int x = ( int )Math.round( cos );
+	int y = ( int )Math.round( sin );
+	
+	sample = ip.getPixel( x, y );
+			
+	if ( i != 0 )
+	{
+		coordinates += ", ";
+		samples += ", ";
+	}
+	coordinates += "{ " + cos + ", " + sin + " }";
+	samples += sample;
+	
+	r += dr / ( r + 1 );
+	phi = rotateByGoldenAngle( phi );
+}
+
+coordinates += " }";
+samples += " }";
+IJ.log( coordinates );
+IJ.log( samples );
+
+
