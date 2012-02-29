@@ -1,0 +1,27 @@
+import java.awt.geom.AffineTransform;
+for (patch:Display.getFront().getLayerSet().getDisplayables(Patch.class)){
+  pbox = patch.getCoordinateTransformBoundingBox();
+  pat = new AffineTransform();
+  pat.translate(-pbox.x, -pbox.y);
+  pat.preConcatenate(patch.getAffineTransform());
+  scaleX = Math.sqrt(pat.getScaleX() * pat.getScaleX() + pat.getShearY() * pat.getShearY());
+  scaleY = Math.sqrt(pat.getScaleY() * pat.getScaleY() + pat.getShearX() * pat.getShearX());
+  scale = (scaleX + scaleY) / 2.0;
+  sat = new AffineTransform(scale, 0, 0, scale, 0, 0);
+  sct = new mpicbg.trakem2.transform.AffineModel2D();
+  sct.set(sat);
+  sat.invert();
+  pat.concatenate(sat);
+  pct = patch.getCoordinateTransform();
+  ct = null;
+  if (pct == null)
+    ct = sct;
+  else{
+    ct = new mpicbg.trakem2.transform.CoordinateTransformList();
+    ct.add(pct);
+    ct.add(sct);
+  }
+  patch.setCoordinateTransform(null);
+  patch.setAffineTransform(pat);
+  patch.setCoordinateTransform(ct);
+}
