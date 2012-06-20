@@ -1,6 +1,6 @@
 /**
  * Render the displacement vectors of the whole montage relative to
- * a translation model estimated from mesh correspondences.
+ * a simpler model estimated from mesh correspondences.
  */
 
 import ini.trakem2.display.*;
@@ -74,7 +74,7 @@ Model sampleModel( ct, modelClass, width, height )
 }
 
 scale = 0.10f;
-max = 250;
+max = 50;
 
 patches = Display.getFront().getLayer().getDisplayables( Patch.class );
 
