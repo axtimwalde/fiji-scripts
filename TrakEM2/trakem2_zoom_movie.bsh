@@ -1,0 +1,125 @@
+import java.awt.geom.*;
+
+roi = IJ.getImage().getRoi();
+box = roi.getBounds();
+tx = box.x + box.width / 2;
+ty = box.y + box.height / 2;
+scale = Math.min( 1.0, 1280.0 / box.width );
+
+int l = 400;
+
+/* Backup affine transforms */
+layer = Display.getFrontLayer();
+layer.getParent().addTransformStep( layer );
+
+/* Block user GUI input */
+layer.getProject().setReceivesInput( false );
+
+double barSize( imp, int maxPixelLength )
+{
+	c = imp.getCalibration();
+	double pixelWidth = c.pixelWidth;
+	for ( int pt = 2; ; --pt )
+	{
+		double pe = Math.pow( 10, pt );
+		for ( int b = 10; b > 1; b -= 1 )
+		{
+			double l = b * pe;
+			if ( l / pixelWidth < maxPixelLength )
+				return l;
+		}
+	}
+}
+
+try {
+
+	stack = null;
+	impStack = null;
+	li = 0;
+	lid = 1;
+	double pixelScale = 1.0;
+
+	for ( var i = 0; i < l; ++i )
+	{
+		layer = layer.getParent().getLayer( li );
+		if ( li == 0 )
+			lid = 1;
+		if ( li == layer.getParent().getLayers().size() - 1 )
+			lid = -1;
+		li += lid;
+		
+		double a = 0.5 - Math.cos( 2 * Math.PI * i / l ) / 2;
+		
+		ats = new AffineTransform();
+		atr = new AffineTransform();
+		att = new AffineTransform();
+
+		double s = 1.0 + a * 0.02;
+		pixelScale *= s;
+
+		ats.scale( s, s );
+		atr.rotate( a * 0.02 );
+		att.translate( tx, ty );
+		atti = att.clone();
+		atti.invert();
+		
+		d = Display.getFront().getLayerSet().getDisplayables( Patch.class );
+		for ( var j = 0; j < d.size(); ++j )
+		{
+			var atd = d.get( j ).getAffineTransform();
+			
+			atd.preConcatenate( atti );
+			atd.preConcatenate( ats );
+			atd.preConcatenate( atr );
+			atd.preConcatenate( att );
+			
+			d.get( j ).setAffineTransform( atd );
+//			IJ.log( atd.toString() );
+		}
+		IJ.log( i + "" );
+		Display.repaint();
+		Thread.sleep( 100 );
+		
+		imp = layer.getProject().getLoader().getFlatImage(
+				layer,
+				roi.getBounds(),
+				scale,
+				-1,
+				ImagePlus.GRAY8,
+				Patch.class,
+				layer.getDisplayables( Patch.class ),
+				true,
+				Color.white );
+		c = imp.getCalibration();
+		c.pixelWidth = c.pixelHeight = c.pixelWidth / pixelScale;
+		imp.setCalibration( c );
+		double b = barSize( imp, 200 );		
+		IJ.run( imp, "Scale Bar...", "width=" + b + " height=8 font=19 color=Black background=White location=[Lower Right]" );
+		if ( impStack == null )
+		{
+			stack = new ImageStack( imp.getWidth(), imp.getHeight() );
+			stack.addSlice( "", imp.getProcessor() );
+			impStack = new ImagePlus( "movie", stack );
+			impStack.show();
+		}
+		else
+		{
+			stack.addSlice( "", imp.getProcessor() );
+			impStack.setStack( impStack.getTitle(), stack );
+			impStack.setSlice( stack.getSize() );
+			impStack.updateAndDraw();
+		}
+		layer.getParent().addTransformStep( layer );
+	}
+
+} catch (error) {
+	IJ.log(error.toString());
+}
+
+/* Restore affine transforms */
+layer.getParent().undoOneStep();
+
+/* Enable user GUI input */
+layer.getProject().setReceivesInput( true );
+
+Display.repaint();
