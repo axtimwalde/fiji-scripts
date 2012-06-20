@@ -100,9 +100,12 @@ void run()
 	i = 0;
 	for ( patch : patches )
 	{
-		float[] c = patchCenterToWorld( patch );
-		Point p = new Point( c );
-		cp.put( patch.getId(), new PointMatch( p, new Point( new float[ 2 ] ) ) );
+		if ( patch.isVisible() )
+		{
+			float[] c = patchCenterToWorld( patch );
+			Point p = new Point( c );
+			cp.put( patch.getId(), new PointMatch( p, new Point( new float[ 2 ] ) ) );
+		}
 		IJ.showProgress( ++i, patches.size() );
 	}
 
