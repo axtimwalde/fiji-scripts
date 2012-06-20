@@ -133,34 +133,41 @@ void run()
 		matches = new ArrayList();
 		
 		for ( patch : layer.getDisplayables( Patch.class ) )
-			matches.add( cp.get( patch.getId() ) );
+		{
+			match = cp.get( patch.getId() );
+			if ( match != null )
+				matches.add( match );
+		}
 		
 		for ( patch : layer.getDisplayables( Patch.class ) )
 		{
-			try
+			if ( patch.isVisible() )
 			{
-				box = patch.getCoordinateTransformBoundingBox();
-				at = new AffineTransform();
-				at.translate( -box.x, -box.y );
-				at.preConcatenate( patch.getAffineTransform() );
+				try
+				{
+					box = patch.getCoordinateTransformBoundingBox();
+					at = new AffineTransform();
+					at.translate( -box.x, -box.y );
+					at.preConcatenate( patch.getAffineTransform() );
 							
-				mpicbg.trakem2.transform.AffineModel2D toWorld = new mpicbg.trakem2.transform.AffineModel2D();
-				toWorld.set( at );
+					mpicbg.trakem2.transform.AffineModel2D toWorld = new mpicbg.trakem2.transform.AffineModel2D();
+					toWorld.set( at );
 							
-				mlst = Align.createMLST( matches, 1.0f );
+					mlst = Align.createMLST( matches, 1.0f );
 							
-				ctl = new CoordinateTransformList();
-				ctl.add( toWorld );
-				ctl.add( mlst );
-				ctl.add( toWorld.createInverse() );
+					ctl = new CoordinateTransformList();
+					ctl.add( toWorld );
+					ctl.add( mlst );
+					ctl.add( toWorld.createInverse() );
 				
-				patch.appendCoordinateTransform( ctl );
+					patch.appendCoordinateTransform( ctl );
 				
-				patch.updateMipMaps();
-			}
-			catch ( Exception e )
-			{
-				e.printStackTrace();
+					patch.updateMipMaps();
+				}
+				catch ( Exception e )
+				{
+					e.printStackTrace();
+				}
 			}
 		}
 	}
