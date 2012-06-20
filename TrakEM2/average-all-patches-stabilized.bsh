@@ -1,0 +1,74 @@
+/**
+ * Calculates an average projection of all images in a project of which we
+ * assume that they are all of same type and 2048x2048px in size.  The
+ * calculation is performed in a tree like manner such that the accumulation
+ * of floating point inaccuracy, that is inevitable when combining very small
+ * and very large values, is minimized.
+ * 
+ */
+import ini.trakem2.display.*;
+import ij.*;
+import ij.process.*;
+import java.util.*;
+
+int k = 0;
+HashMap images = new HashMap();
+
+void makeAverage( FloatProcessor average, HashMap weightedParts )
+{
+	final ArrayList weights = new ArrayList( weightedParts.keySet() );
+	Collections.sort( weights );
+	int s = 0;
+	for ( int w : weights )
+	{
+		s += w;
+		average.multiply( 1.0 - ( double )w / s );
+		final FloatProcessor fp = weightedParts.get( w ).duplicate();
+		fp.multiply( ( double )w / s );
+		average.copyBits( fp, 0, 0, Blitter.ADD );
+		IJ.log( "w=" + w + " s=" + s );
+	}
+}
+
+ImagePlus imp = new ImagePlus( "average", new FloatProcessor( 2048, 2048 ) );
+imp.show();
+
+for ( l : Display.getFront().getLayer().getParent().getLayers() )
+{
+	IJ.log( "Processing layer:" + l.getTitle() );
+	for ( p : l.getDisplayables( Patch.class ) )
+	{
+		++k;
+		IJ.log( k + ": " + p.getTitle() );
+		if ( k % 32 == 0 )
+		{
+			IJ.log( "Releasing cache" );
+			p.getProject().getLoader().releaseAll();
+		}
+		
+		final FloatProcessor a = ( FloatProcessor )p.getImageProcessor().convertToFloat();
+		int w = 1;
+		FloatProcessor b = images.remove( w );
+		while ( b != null )
+		{
+			w *= 2;
+			a.copyBits( b, 0, 0, Blitter.ADD );
+			a.multiply( 0.5 );
+			b = images.remove( w );
+		}
+		images.put( w, a );
+		
+		if ( k % 32 == 1 )
+		{
+			makeAverage( imp.getProcessor(), images );
+			imp.getProcessor().setMinAndMax( p.getMin(), p.getMax() );
+			imp.updateAndDraw();
+		}
+	}
+}
+
+makeAverage( imp.getProcessor(), images );
+imp.updateAndDraw();
+
+IJ.log( "Done." );
+
