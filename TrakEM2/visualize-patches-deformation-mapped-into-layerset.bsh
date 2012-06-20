@@ -1,0 +1,138 @@
+/**
+ * Render the displacement vectors of the whole montage relative to
+ * a translation model estimated from mesh correspondences.
+ */
+
+import ini.trakem2.display.*;
+import mpicbg.trakem2.transform.*;
+import mpicbg.ij.util.*;
+import mpicbg.models.Model;
+
+ImageProcessor visualizeDifference( w, h, ct1, ct2 )
+{
+	ip = new FloatProcessor( w, h );
+	for ( y = 0; y < h; ++y )
+	{
+		for ( x = 0; x < w; ++x )
+		{
+			l1 = new float[]{ x * sx, y * sy };
+			l2 = new float[]{ x * sx, y * sy };
+			ct1.applyInPlace( l1 );
+			ct2.applyInPlace( l2 );
+			dx = l1[ 0 ] - l2[ 0 ];
+			dy = l1[ 1 ] - l2[ 1 ];
+			d = Math.sqrt( dx * dx + dy * dy );
+			ip.setf( x, y, ( float )d );
+		}
+	}
+	return ip;
+}
+
+ImageProcessor visualizeDifferenceVectors( patch, scale, ct1, ct2, max, orientation )
+{
+	w = ( int )( patch.getOWidth() * scale );
+	h = ( int )( patch.getOHeight() * scale );
+	
+	ip = new ColorProcessor( w, h );
+	for ( y = 0; y < h; ++y )
+	{
+		for ( x = 0; x < w; ++x )
+		{
+			l1 = new float[]{ x / scale, y / scale };
+			l2 = new float[]{ x / scale, y / scale };
+			ct1.applyInPlace( l1 );
+			ct2.applyInPlace( l2 );
+			dx = ( l1[ 0 ] - l2[ 0 ] ) / max;
+			dy = ( l1[ 1 ] - l2[ 1 ] ) / max;
+			dxa = orientation[ 0 ] * dx + orientation[ 2 ] * dy;
+			dya = orientation[ 1 ] * dx + orientation[ 3 ] * dy;
+			ip.set( x, y, mpicbg.ij.util.Util.colorVector( dxa, dya ) );
+		}
+	}
+	return ip;
+}
+
+Model sampleModel( ct, modelClass, width, height )
+{
+	model = modelClass.newInstance();
+	matches = new ArrayList();
+	float scaleX = ( ( float )width - 1.0f ) / 63.0f;
+	float scaleY = ( ( float )height - 1.0f ) / 63.0f;
+	for ( y = 0; y < 64; ++y )
+	{
+		float ys = scaleY * y;
+		for ( x = 0; x < 64; ++x )
+		{
+			float xs = scaleX * x;
+			p = new mpicbg.models.Point( new float[]{ xs, ys } );
+			p.apply( ct );
+			matches.add( new mpicbg.models.PointMatch( p, p ) );
+		}
+	}
+	model.fit( matches );
+	return model;
+}
+
+scale = 0.10f;
+max = 400;
+
+ipStack = new ImageStack(
+	( int )( Display.getFront().getLayer().getLayerWidth() * scale ),
+	( int )( Display.getFront().getLayer().getLayerHeight() * scale ) );
+impStack;
+for ( layer : Display.getFront().getLayerSet().getLayers() )
+{
+	ipTarget = new ColorProcessor( ipStack.getWidth(), ipStack.getHeight() );
+	ipStack.addSlice( "", ipTarget );
+	if ( ipStack.getSize() == 1 )
+	{
+		impStack = new ImagePlus( "target", ipStack );
+		impStack.show();
+	}
+	else
+		impStack.setStack( ipStack );
+
+	orientation = new float[ 6 ];
+	patches = layer.getDisplayables( Patch.class );
+
+	for ( patch : patches )
+	{
+		ct = patch.getCoordinateTransform();
+	
+		/* append patch affine ... grrrr! */
+		box = patch.getCoordinateTransformBoundingBox();
+		at = patch.getAffineTransformCopy();
+		at.translate( -box.x, -box.y );
+		affine = new AffineModel2D();
+		affine.set( at );
+		affine.toArray( orientation );
+		
+		ctl = new CoordinateTransformList();
+		ctl.add( ct );
+		ctl.add( affine );
+		
+		t = sampleModel( ctl, RigidModel2D.class, patch.getWidth(), patch.getHeight() );
+		
+		ip = visualizeDifferenceVectors( patch, scale, ctl, t, max, orientation );
+		
+		mesh = new mpicbg.models.CoordinateTransformMesh( ctl, 32, patch.getOWidth(), patch.getOHeight() );
+		
+		/* scale the mesh */
+		vertices = mesh.getVA().keySet();
+		for ( vertex : vertices )
+		{
+			p1l = vertex.getP1().getL();
+			p2w = vertex.getP2().getW();
+			p1l[ 0 ] *= scale;
+			p1l[ 1 ] *= scale;
+			p2w[ 0 ] *= scale;
+			p2w[ 1 ] *= scale;
+		}
+		mesh.updateAffines();
+		
+		mapping = new mpicbg.ij.TransformMeshMapping( mesh );
+		mapping.mapInterpolated( ip, ipTarget );
+		impStack.updateAndDraw();
+	}
+}
+
