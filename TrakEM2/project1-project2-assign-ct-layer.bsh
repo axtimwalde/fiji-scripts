@@ -1,0 +1,90 @@
+/**
+ * This script takes two related TrakEM2 projects on the same image data as
+ * input.  From a chosen layer, the transformation of all patches is assigned
+ * to their corresponding patches in the other project.
+ */
+
+import ij.*;
+import ij.gui.*;
+ 
+import ini.trakem2.display.*;
+import ini.trakem2.Project;
+import mpicbg.models.Point;
+import mpicbg.models.PointMatch;
+import mpicbg.models.AffineModel2D;
+import mpicbg.trakem2.align.AbstractAffineTile2D;
+import mpicbg.trakem2.align.Align;
+import mpicbg.trakem2.align.AlignTask;
+import mpicbg.trakem2.transform.MovingLeastSquaresTransform2;
+import mpicbg.trakem2.transform.CoordinateTransform;
+import mpicbg.trakem2.transform.CoordinateTransformList;
+
+import java.awt.Rectangle;
+import java.awt.geom.AffineTransform;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Set;
+
+project1 = null;
+project2 = null;
+layer = 1;
+
+boolean setup()
+{
+	gd = new GenericDialog( "Set Patch Transformations" );
+	
+	projects = Project.getProjects();		
+	if ( projects.size() < 2 )
+		return false;
+	
+	projectNames = new String[ projects.size() ];
+	for ( i = 0; i < projects.size(); ++i )
+		projectNames[ i ] = projects.get( i ).toString();
+	
+	gd.addChoice( "target_project :", projectNames, projectNames[ 0 ] );
+	gd.addChoice( "source_project :", projectNames, projectNames[ 1 ] );
+	gd.addNumericField( "layer :", layer, 0 );
+		
+	gd.showDialog();
+	if ( gd.wasCanceled() ) return false;
+	
+	project1 = projects.get( gd.getNextChoiceIndex() );
+	project2 = projects.get( gd.getNextChoiceIndex() );
+	layer = ( int )gd.getNextNumber();
+	
+	return true;
+}
+
+void run()
+{
+	if ( !setup() ) return;
+	
+	/* HashMap< Long, Patch > */
+	cp = new HashMap();
+
+	IJ.log( "Collecting target patches..." );
+	patches = project1.getRootLayerSet().getLayer( layer ).getDisplayables( Patch.class );
+	i = 0;
+	for ( patch : patches )
+	{
+		cp.put( patch.getId(), patch );
+		IJ.showProgress( ++i, patches.size() );
+	}
+
+	IJ.log( "Assigning transformations..." );
+	patches = project2.getRootLayerSet().getLayer( layer ).getDisplayables( Patch.class );
+	i = 0;
+	for ( patch : patches )
+	{
+		if ( cp.containsKey( patch.getId() ) )
+		{
+			targetPatch = cp.get( patch.getId() );
+			targetPatch.setCoordinateTransform( patch.getCoordinateTransform() );
+			targetPatch.getAffineTransform().setTransform( patch.getAffineTransform() );
+		}
+		IJ.showProgress( ++i, patches.size() );
+	}	
+}
+
+run();
+
