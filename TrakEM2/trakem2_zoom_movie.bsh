@@ -6,7 +6,7 @@ tx = box.x + box.width / 2;
 ty = box.y + box.height / 2;
 scale = Math.min( 1.0, 1280.0 / box.width );
 
-int l = 400;
+int l = 458 * 2;
 
 /* Backup affine transforms */
 layer = Display.getFrontLayer();
@@ -41,10 +41,10 @@ try {
 
 	for ( var i = 0; i < l; ++i )
 	{
-		layer = layer.getParent().getLayer( li );
+		layer = layer.getParent().getLayer( li / 2 );
 		if ( li == 0 )
 			lid = 1;
-		if ( li == layer.getParent().getLayers().size() - 1 )
+		if ( li == layer.getParent().getLayers().size() * 2 - 1 )
 			lid = -1;
 		li += lid;
 		
@@ -54,11 +54,11 @@ try {
 		atr = new AffineTransform();
 		att = new AffineTransform();
 
-		double s = 1.0 + a * 0.02;
+		double s = 1.0 + a * 0.0063;
 		pixelScale *= s;
 
 		ats.scale( s, s );
-		atr.rotate( a * 0.02 );
+		atr.rotate( a * 0.01 );
 		att.translate( tx, ty );
 		atti = att.clone();
 		atti.invert();
