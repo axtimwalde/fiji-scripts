@@ -1,0 +1,41 @@
+import lenscorrection.*;
+import mpicbg.trakem2.transform.*;
+
+NonLinearTransform getLensCorrectionModel()
+{
+	/* get the reference patch */
+	p = Display.getFront().getActive();
+	
+	/* if no reference patch, get out of here */
+	if ( p == null ) return null;
+	
+	/* get the reference patch CT */
+	ct = p.getCoordinateTransform();
+	
+	/* if no CT there, get out of here */
+	if ( ct == null ) return null;
+	
+	/* unwind CT lists to get the very first actual CT */
+	while ( CoordinateTransformList.class.isInstance( ct ) )
+		ct = ct.get( 0 );
+
+	/* is it a NonLinearTransform? */
+	/*
+	 * TODO: This is not really required, the desired operation is to take the
+	 * first CT of a reference patch and make it the first CT of some other
+	 * patches.  This does not require the CT to be anything particular.
+	 */ 
+	if ( NonLinearTransform.class.isInstance( ct ) )
+		return ct;
+		
+	return null;
+}
+
+
+void setLensCorrectionModel( ct, patches )
+{
+	for ( patch : patches )
+	{
+		ctp = patch.getCoordinateTransform();
+	}
+}
