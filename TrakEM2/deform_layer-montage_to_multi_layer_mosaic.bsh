@@ -1,0 +1,168 @@
+/**
+ * This script takes two related TrakEM2 projects on the same image data as
+ * input.  The first project has all patches montaged perfectly, the alignment
+ * of layers relative to each other is irrelevant.  The second project is the
+ * result of a multi-layer-mosaic alignment and thus approximates a global
+ * alignment of all patches through a rigid transformation per patch.
+ * 
+ * The script warps all layers in the first project such that the center points
+ * of all patches are transferred to where they are in the second project.
+ * The warp is realized with an MLS transformation per layer with the center
+ * points of all tiles being the control points.  It is important to understand
+ * that the warping has no effect on the smoothness of transitions between
+ * patches within the montage.
+ *
+ * The result is a project with layer montages that are warped such that they
+ * resemble the alignment result of the multi-layer-mosaic alignment of the
+ * second project.  This result is applied to the first project.
+ */
+
+import ij.*;
+import ij.gui.*;
+ 
+import ini.trakem2.display.*;
+import ini.trakem2.Project;
+import mpicbg.models.Point;
+import mpicbg.models.PointMatch;
+import mpicbg.models.AffineModel2D;
+import mpicbg.trakem2.align.AbstractAffineTile2D;
+import mpicbg.trakem2.align.Align;
+import mpicbg.trakem2.align.AlignTask;
+import mpicbg.trakem2.transform.MovingLeastSquaresTransform2;
+import mpicbg.trakem2.transform.CoordinateTransform;
+import mpicbg.trakem2.transform.CoordinateTransformList;
+
+import java.awt.Rectangle;
+import java.awt.geom.AffineTransform;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Set;
+
+project1 = null;
+project2 = null;
+layer = 1;
+
+boolean setup()
+{
+	gd = new GenericDialog( "Deform Montages to Multi-Layer-Mosaic" );
+	
+	projects = Project.getProjects();		
+	if ( projects.size() < 2 )
+		return false;
+	
+	projectNames = new String[ projects.size() ];
+	for ( i = 0; i < projects.size(); ++i )
+		projectNames[ i ] = projects.get( i ).toString();
+	
+	gd.addChoice( "independent-montages :", projectNames, projectNames[ 0 ] );
+	gd.addChoice( "multi-layer-montages :", projectNames, projectNames[ 1 ] );
+	gd.addNumericField( "layer :", layer, 0 );	
+	
+	gd.showDialog();
+	if ( gd.wasCanceled() ) return false;
+	
+	project1 = projects.get( gd.getNextChoiceIndex() );
+	project2 = projects.get( gd.getNextChoiceIndex() );
+	layer = ( int )gd.getNextNumber();
+	
+	return true;
+}
+
+float[] patchCenterToWorld( patch )
+{
+	c = new float[]{ ( float )patch.getOWidth() / 2.0f,( float )patch.getOHeight() / 2.0f };
+	ct = patch.getCoordinateTransform();
+	at = patch.getAffineTransformCopy();
+	if ( ct != null )
+	{
+		box = patch.getCoordinateTransformBoundingBox();
+		at.translate( -box.x, -box.y );
+		ct.applyInPlace( c );
+	}
+	affine = new AffineModel2D();
+	affine.set( at );
+	affine.applyInPlace( c );
+	return c;
+}
+
+void run()
+{
+	if ( !setup() ) return;
+	
+	IJ.log( "deforming..." );
+		
+	/* create one deformation control point at the center point of each tile */
+	/* HashMap< Long, Point > */
+	cp = new HashMap();
+
+	IJ.log( "Collecting source points..." );
+	/* all patches from the montage project layer */
+	patches = project1.getRootLayerSet().getLayer( layer ).getDisplayables( Patch.class );
+	i = 0;
+	for ( patch : patches )
+	{
+		if ( patch.isVisible() )
+		{
+			float[] c = patchCenterToWorld( patch );
+			Point p = new Point( c );
+			cp.put( patch.getId(), new PointMatch( p, new Point( new float[ 2 ] ) ) );
+		}
+		IJ.showProgress( ++i, patches.size() );
+	}
+
+	IJ.log( "Collecting target points..." );
+	patches = project2.getRootLayerSet().getLayer( layer ).getDisplayables( Patch.class );
+	i = 0;
+	for ( patch : patches )
+	{
+		if ( cp.containsKey( patch.getId() ) )
+		{
+			float[] c = patchCenterToWorld( patch );
+			Point q = cp.get( patch.getId() ).getP2();
+			float[] w = q.getW();
+			w[ 0 ] = c[ 0 ];
+			w[ 1 ] = c[ 1 ];
+		}
+		IJ.showProgress( ++i, patches.size() );
+	}
+	
+	matches = new ArrayList();
+		
+	for ( match : cp.values() )
+		matches.add( match );
+	
+	patches = project1.getRootLayerSet().getLayer( layer ).getDisplayables( Patch.class );
+	i = 0;
+	for ( patch : patches )
+	{
+		try
+		{
+			box = patch.getCoordinateTransformBoundingBox();
+			at = new AffineTransform();
+			at.translate( -box.x, -box.y );
+			at.preConcatenate( patch.getAffineTransform() );
+						
+			mpicbg.trakem2.transform.AffineModel2D toWorld = new mpicbg.trakem2.transform.AffineModel2D();
+			toWorld.set( at );
+						
+			mlst = Align.createMLST( matches, 1.0f );
+						
+			ctl = new CoordinateTransformList();
+			ctl.add( toWorld );
+			ctl.add( mlst );
+			ctl.add( toWorld.createInverse() );
+			
+			patch.appendCoordinateTransform( ctl );
+			
+			//patch.updateMipMaps();
+		}
+		catch ( Exception e )
+		{
+			e.printStackTrace();
+		}
+		IJ.showProgress( ++i, patches.size() );
+	}
+}
+
+run();
+

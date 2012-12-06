@@ -1,0 +1,134 @@
+/**
+ * Render the displacement vectors of the whole montage relative to
+ * a translation model estimated from mesh correspondences.
+ */
+
+import ini.trakem2.display.*;
+import mpicbg.trakem2.transform.*;
+import mpicbg.ij.util.*;
+import mpicbg.models.Model;
+
+ImageProcessor visualizeDifference( w, h, ct1, ct2 )
+{
+	ip = new FloatProcessor( w, h );
+	for ( y = 0; y < h; ++y )
+	{
+		for ( x = 0; x < w; ++x )
+		{
+			l1 = new float[]{ x * sx, y * sy };
+			l2 = new float[]{ x * sx, y * sy };
+			ct1.applyInPlace( l1 );
+			ct2.applyInPlace( l2 );
+			dx = l1[ 0 ] - l2[ 0 ];
+			dy = l1[ 1 ] - l2[ 1 ];
+			d = Math.sqrt( dx * dx + dy * dy );
+			ip.setf( x, y, ( float )d );
+		}
+	}
+	return ip;
+}
+
+void sampleDisplacement( patch, scale, ct1, ct2, observer )
+{
+	w = ( int )( patch.getOWidth() * scale );
+	h = ( int )( patch.getOHeight() * scale );
+	
+	ip = new ColorProcessor( w, h );
+	for ( y = 0; y < h; ++y )
+	{
+		for ( x = 0; x < w; ++x )
+		{
+			l1 = new float[]{ x / scale, y / scale };
+			l2 = new float[]{ x / scale, y / scale };
+			ct1.applyInPlace( l1 );
+			ct2.applyInPlace( l2 );
+			dx = ( l1[ 0 ] - l2[ 0 ] );
+			dy = ( l1[ 1 ] - l2[ 1 ] );
+			d = Math.sqrt( dx * dx + dy * dy );
+			observer.add( d );
+		}
+	}
+}
+
+ImageProcessor visualizeDifferenceVectors( patch, scale, ct1, ct2, max, orientation )
+{
+	w = ( int )( patch.getOWidth() * scale );
+	h = ( int )( patch.getOHeight() * scale );
+	
+	ip = new ColorProcessor( w, h );
+	for ( y = 0; y < h; ++y )
+	{
+		for ( x = 0; x < w; ++x )
+		{
+			l1 = new float[]{ x / scale, y / scale };
+			l2 = new float[]{ x / scale, y / scale };
+			ct1.applyInPlace( l1 );
+			ct2.applyInPlace( l2 );
+			dx = ( l1[ 0 ] - l2[ 0 ] ) / max;
+			dy = ( l1[ 1 ] - l2[ 1 ] ) / max;
+			dxa = orientation[ 0 ] * dx + orientation[ 2 ] * dy;
+			dya = orientation[ 1 ] * dx + orientation[ 3 ] * dy;
+			ip.set( x, y, mpicbg.ij.util.Util.colorVector( dxa, dya ) );
+		}
+	}
+	return ip;
+}
+
+Model sampleModel( ct, modelClass, width, height )
+{
+	model = modelClass.newInstance();
+	matches = new ArrayList();
+	float scaleX = ( ( float )width - 1.0f ) / 63.0f;
+	float scaleY = ( ( float )height - 1.0f ) / 63.0f;
+	for ( y = 0; y < 64; ++y )
+	{
+		float ys = scaleY * y;
+		for ( x = 0; x < 64; ++x )
+		{
+			float xs = scaleX * x;
+			p = new mpicbg.models.Point( new float[]{ xs, ys } );
+			p.apply( ct );
+			matches.add( new mpicbg.models.PointMatch( p, p ) );
+		}
+	}
+	model.fit( matches );
+	return model;
+}
+
+scale = 0.01f;
+
+patches = Display.getFront().getLayerSet().getDisplayables( Patch.class );
+
+observer = new mpicbg.models.ErrorStatistic( 1 );
+
+i = 0;
+
+maxPatch = null;
+
+for ( patch : patches )
+{
+	IJ.showProgress( ++i, patches.size() );
+	 
+	ct = patch.getCoordinateTransform();
+	
+	/* append patch affine ... grrrr! */
+	box = patch.getCoordinateTransformBoundingBox();
+	at = patch.getAffineTransformCopy();
+	at.translate( -box.x, -box.y );
+	affine = new AffineModel2D();
+	affine.set( at );
+	
+	ctl = new CoordinateTransformList();
+	ctl.add( ct );
+	ctl.add( affine );
+	
+	t = sampleModel( ctl, RigidModel2D.class, patch.getWidth(), patch.getHeight() );
+
+	max = observer.max;
+	sampleDisplacement( patch, scale, ctl, t, observer );
+	if ( observer.max > max )
+		maxPatch = patch;
+
+	IJ.log( "" + observer.max );
+}
+
