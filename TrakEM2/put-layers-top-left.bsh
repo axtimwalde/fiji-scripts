@@ -26,8 +26,10 @@ for ( int i = firstLayer; i <= lastLayer; ++i )
 	}
 	for ( patch : layer.getDisplayables( Patch.class ) )
 	{
+		t = new AffineTransform();
+		t.translate( -minX, -minY );
 		at = patch.getAffineTransform();
-		at.translate( -minX, -minY );
+		at.preConcatenate( t );
 		patch.updateInDatabase( "transform" );
 		patch.updateBucket();
 	}
