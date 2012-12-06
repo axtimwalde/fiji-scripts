@@ -1,5 +1,9 @@
 import mpicbg.ij.blockmatching.*;
 import mpicbg.models.*;
+import mpicbg.trakem2.align.*;
+import ij.gui.*;
+
+scale = 1.0f;
 
 blockRadius = searchRadius = 50;
 
@@ -7,11 +11,57 @@ minR = 0.1f;
 rodR = 1.0f;
 maxCurvatureR = 1000.0f;
 
+useLocalSmoothnessFilter = true;
+modelStrings = new String[]{ "Translation", "Rigid", "Similarity", "Affine" };
+localModelIndex = 1;
 localRegionSigma = 65.0f;
 maxLocalEpsilon = 12.0f;
 maxLocalTrust = 3.0f;
 
 meshResolution = 24;
+
+boolean setup()
+{
+	gdBlockMatching = new GenericDialog( "Block Matching parameters" );
+			
+	gdBlockMatching.addMessage( "Block Matching:" );
+	gdBlockMatching.addNumericField( "layer_scale :", scale, 2 );
+	gdBlockMatching.addNumericField( "search_radius :", searchRadius, 0, 6, "px" );
+	gdBlockMatching.addNumericField( "block_radius :", blockRadius, 0, 6, "px" );
+	gdBlockMatching.addNumericField( "resolution :", meshResolution, 0 );
+	
+	gdBlockMatching.addMessage( "Correlation Filters:" );
+	gdBlockMatching.addNumericField( "minimal_PMCC_r :", minR, 2 );
+	gdBlockMatching.addNumericField( "maximal_curvature_ratio :", maxCurvatureR, 2 );
+	gdBlockMatching.addNumericField( "maximal_second_best_r/best_r :", rodR, 2 );
+			
+	gdBlockMatching.addMessage( "Local Smoothness Filter:" );
+	gdBlockMatching.addCheckbox( "use_local_smoothness_filter", useLocalSmoothnessFilter );
+	gdBlockMatching.addChoice( "approximate_local_transformation :", modelStrings, modelStrings[ localModelIndex ] );
+	gdBlockMatching.addNumericField( "local_region_sigma:", localRegionSigma, 2, 6, "px" );
+	gdBlockMatching.addNumericField( "maximal_local_displacement (absolute):", maxLocalEpsilon, 2, 6, "px" );
+	gdBlockMatching.addNumericField( "maximal_local_displacement (relative):", maxLocalTrust, 2 );
+	
+	gdBlockMatching.showDialog();
+			
+	if ( gdBlockMatching.wasCanceled() )
+		return false;
+			
+	scale = ( float )gdBlockMatching.getNextNumber();
+	searchRadius = ( int )gdBlockMatching.getNextNumber();
+	blockRadius = ( int )gdBlockMatching.getNextNumber();
+	meshResolution = ( int )gdBlockMatching.getNextNumber();
+	minR = ( float )gdBlockMatching.getNextNumber();
+	maxCurvatureR = ( float )gdBlockMatching.getNextNumber();
+	rodR = ( float )gdBlockMatching.getNextNumber();
+	useLocalSmoothnessFilter = gdBlockMatching.getNextBoolean();
+	localModelIndex = gdBlockMatching.getNextChoiceIndex();
+	localRegionSigma = ( float )gdBlockMatching.getNextNumber();
+	maxLocalEpsilon = ( float )gdBlockMatching.getNextNumber();
+	maxLocalTrust = ( float )gdBlockMatching.getNextNumber();
+	
+	return true;		
+}
 
 FloatProcessor createMask( ImageProcessor source )
 {
@@ -30,56 +80,67 @@ FloatProcessor createMask( ImageProcessor source )
 	return mask;
 }
 
-stack = IJ.getImage().getStack();
+if ( setup() )
+{
+	stack = IJ.getImage().getStack();
 
-mesh = new SpringMesh( meshResolution, stack.getWidth(), stack.getHeight(), 1, 1000, 1 );
+	mesh = new SpringMesh( meshResolution, stack.getWidth(), stack.getHeight(), 1, 1000, 1 );
 
-pm12 = new ArrayList();
+	pm12 = new ArrayList();
 
-v1 = mesh.getVertices();
+	v1 = mesh.getVertices();
 
-ip1 = stack.getProcessor( 1 ).convertToFloat().duplicate();
-ip2 = stack.getProcessor( 2 ).convertToFloat().duplicate();
+	ip1 = stack.getProcessor( 1 ).convertToFloat().duplicate();
+	ip2 = stack.getProcessor( 2 ).convertToFloat().duplicate();
 			
-ip1Mask = createMask( stack.getProcessor( 1 ) );
-ip2Mask = createMask( stack.getProcessor( 2 ) );
+	ip1Mask = createMask( stack.getProcessor( 1 ) );
+	ip2Mask = createMask( stack.getProcessor( 2 ) );
 
-ct = new TranslationModel2D();
+	ct = new TranslationModel2D();
 
-BlockMatching.matchByMaximalPMCC(
-		ip1,
-		ip2,
-		ip1Mask,
-		ip2Mask,
-		1.0f,
-		ct,
-		blockRadius,
-		blockRadius,
-		searchRadius,
-		searchRadius,
-		minR,
-		rodR,
-		maxCurvatureR,
-		v1,
-		pm12,
-		new ErrorStatistic( 1 ) );
-
-new RigidModel2D().localSmoothnessFilter( pm12, pm12, localRegionSigma, maxLocalEpsilon, maxLocalTrust );
+	BlockMatching.matchByMaximalPMCC(
+			ip1,
+			ip2,
+			ip1Mask,
+			ip2Mask,
+			scale,
+			ct,
+			blockRadius,
+			blockRadius,
+			searchRadius,
+			searchRadius,
+			minR,
+			rodR,
+			maxCurvatureR,
+			v1,
+			pm12,
+			new ErrorStatistic( 1 ) );
+	
+	IJ.log( pm12.size() + " blockmatch candidates found." );
+	
+	if ( useLocalSmoothnessFilter )		
+	{
+		model = mpicbg.trakem2.align.Util.createModel( localModelIndex );
+		model.localSmoothnessFilter( pm12, pm12, localRegionSigma, maxLocalEpsilon, maxLocalTrust );
+		IJ.log( pm12.size() + " blockmatch candidates passed local smoothness filter." );
+	}
 		
-pm12Sources = new ArrayList();
-pm12Targets = new ArrayList();
+	pm12Sources = new ArrayList();
+	pm12Targets = new ArrayList();
 
-PointMatch.sourcePoints( pm12, pm12Sources );
-PointMatch.targetPoints( pm12, pm12Targets );
+	PointMatch.sourcePoints( pm12, pm12Sources );
+	PointMatch.targetPoints( pm12, pm12Targets );
 
-roi1 = mpicbg.ij.util.Util.pointsToPointRoi( pm12Sources );
-roi2 = mpicbg.ij.util.Util.pointsToPointRoi( pm12Targets );
+	roi1 = mpicbg.ij.util.Util.pointsToPointRoi( pm12Sources );
+	roi2 = mpicbg.ij.util.Util.pointsToPointRoi( pm12Targets );
 
-imp1 = new ImagePlus( "1", stack.getProcessor( 1 ) );
-imp2 = new ImagePlus( "2", stack.getProcessor( 2 ) );
+	imp1 = new ImagePlus( "1", stack.getProcessor( 1 ) );
+	imp2 = new ImagePlus( "2", stack.getProcessor( 2 ) );
 
-imp1.setRoi( roi1 );
-imp2.setRoi( roi2 );
+	imp1.setRoi( roi1 );
+	imp2.setRoi( roi2 );
+}
+
 
 imp1.show();
 imp2.show();

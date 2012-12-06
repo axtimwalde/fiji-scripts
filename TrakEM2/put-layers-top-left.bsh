@@ -1,3 +1,8 @@
+/**
+ * Move all montages to the most top left corner
+ *
+ * @author Stephan Saalfeld <saalfeld@mpi-cbg.de>
+ */
 import ini.trakem2.display.*;
 import java.util.ArrayList;
 import ij.gui.*;

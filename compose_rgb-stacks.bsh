@@ -20,17 +20,50 @@ import ij.WindowManager;
 import ij.gui.GenericDialog;
 import ij.plugin.PlugIn;
 import ij.process.ColorProcessor;
-import ini.trakem2.display.graphics.ColorYCbCrComposite;
+import ini.trakem2.display.graphics.*;
+import java.awt.Composite;
+
+Composite getComposite( int mode, float alpha )
+{
+	switch ( mode )
+	{
+	case 1:
+		return AddARGBComposite.getInstance( alpha );
+	case 2:
+		return SubtractARGBComposite.getInstance( alpha );
+	case 3:
+		return MultiplyARGBComposite.getInstance( alpha );
+	case 4:
+		return DifferenceARGBComposite.getInstance( alpha );
+	case 5:
+		return ColorYCbCrComposite.getInstance( alpha );
+	default:
+		return AlphaComposite.getInstance( AlphaComposite.SRC_OVER, alpha );
+	}
+}
 
 int[] ids = WindowManager.getIDList();
+
+if ( ids == null || ids.length == 0 ) return;
+
 String[] titles = new String[ ids.length ];
 		
 for ( int i = 0; i < ids.length; ++i )
 	titles[ i ] = WindowManager.getImage( ids[ i ] ).getTitle();
 
+String[] modes = new String[]{
+		"Normal",
+		"Add",
+		"Subtract",
+		"Multiply",
+		"Difference",
+		"Color (YCbCr)" };
+
 GenericDialog gd = new GenericDialog( "Compose Stacks" );
 gd.addChoice( "source : ", titles,  titles[ 0 ] );
 gd.addChoice( "target : ", titles,  titles[ 1 ] );
+gd.addChoice( "composition method : ", modes, modes[ 5 ] );
+gd.addSlider( "alpha : ", ( double )0.0, ( double )1.00001, 1.0 );
 
 gd.showDialog();
 
@@ -38,6 +71,8 @@ if ( gd.wasCanceled() ) return;
 
 ImagePlus impSource = WindowManager.getImage( ids[ gd.getNextChoiceIndex() ] );
 ImagePlus impTarget = WindowManager.getImage( ids[ gd.getNextChoiceIndex() ] );
+int mode = gd.getNextChoiceIndex();
+composite = getComposite( mode, ( float )Math.max( 0.0, Math.min( 1.0, gd.getNextNumber() ) ) );
 
 ImageStack sSource = impSource.getStack();
 ImageStack sTarget = impTarget.getStack();
@@ -62,7 +97,7 @@ for ( int i = 1; i <= n; ++i )
 	BufferedImage dst = sTarget.getProcessor( i ).getBufferedImage();
 	
 	Graphics2D g = dst.createGraphics();
-	g.setComposite( ColorYCbCrComposite.getInstance( 1.0f ) );
+	g.setComposite( composite );
 	
 	g.drawImage( src, 0, 0, null );
 	

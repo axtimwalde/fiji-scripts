@@ -1,0 +1,74 @@
+import net.imglib2.collection.RealPointSampleList;
+import net.imglib2.RealPoint;
+import net.imglib2.display.RealARGBConverter;
+import net.imglib2.collection.KDTree;
+import net.imglib2.interpolation.Interpolant;
+import net.imglib2.interpolation.neighborsearch.NearestNeighborInterpolatorFactory;
+import net.imglib2.neighborsearch.NearestNeighborSearch;
+import net.imglib2.neighborsearch.NearestNeighborSearchOnKDTree;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.img.display.imagej.ImageJFunctions;
+import net.imglib2.view.Views;
+
+ip = IJ.getImage().getProcessor();
+
+double pi2 = Math.PI * 2;
+//double gr = ( 1.0 + Math.sqrt( 5.0 ) ) / 2.0;
+double gr = 2;
+double goldenAngle = ( 3 - Math.sqrt( 5 ) ) * Math.PI;
+
+double rotateByGoldenAngle( double phi )
+{
+	phi += goldenAngle;
+	if ( phi > Math.PI )
+		phi -= pi2;
+	return phi;
+}
+
+int n = 100;
+double tx = ip.getWidth() / 2.0;
+double ty = ip.getHeight() / 2.0;
+double dr = 1.0 / n;
+double scale = ip.getWidth();
+
+coordinates = new ArrayList();
+samples = new ArrayList();
+//double phi = 0;
+//double r = 0;
+//double r = 1;
+int sample = 0;
+for ( double yy = -0.5; yy <= 0.5; yy += dr )
+{
+	for ( double xx = -0.5; xx <= 0.5; xx += dr )
+	{
+		int x = ( int )Math.round( tx + 1.0 - Math.cos( Math.PI * xx ) * scale );
+		int y = ( int )Math.round( ty + 1.0 - Math.cos( Math.PI * yy ) * scale );
+	
+		if ( x >= 0 && x < ip.getWidth() && y >= 0 && y < ip.getHeight() )
+		{	
+			sample = ip.getPixel( x, y );
+			
+			coordinates.add( new double[]{ x + 0.001, y + 0.001 } );
+			samples.add( sample );
+		}
+	}
+}
+
+RealPointSampleList list = new RealPointSampleList( 2 );
+
+for ( int i = 0; i < samples.size(); ++i )
+	list.add( new RealPoint( coordinates.get( i ) ), new UnsignedByteType( samples.get( i ) ) );
+
+KDTree kdtree = new KDTree( list );
+
+Interpolant interpolant = new Interpolant( new NearestNeighborSearchOnKDTree( kdtree ), new NearestNeighborInterpolatorFactory() );
+
+raster = Views.raster( interpolant );
+img = Views.interval( raster, new long[]{0,0}, new long[]{ip.getWidth()-1, ip.getHeight()-1} );
+
+ImageJFunctions.show(img);
+
+IJ.log( coordinates.size() + "" );
+IJ.log( samples.size() + "" );
+
+

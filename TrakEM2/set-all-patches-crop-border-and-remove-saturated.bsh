@@ -1,0 +1,12 @@
+r = 11;
+l = Display.getFront().getLayerSet();
+for (p : l.getDisplayables(Patch.class)) {
+  roi = new Roi(r, r, p.getOWidth()-2*r, p.getOHeight()-2*r);
+  mask = new ByteProcessor(p.getOWidth(), p.getOHeight());
+  mask.setRoi(roi);
+  mask.setValue(255);
+  mask.fill();
+  p.setAlphaMask(mask);
+  loader = p.getProject().getLoader();
+  loader.setPreprocessorScriptPath(p, "pp_remove_saturated.bsh");
+}

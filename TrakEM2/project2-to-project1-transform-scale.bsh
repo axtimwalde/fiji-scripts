@@ -14,7 +14,7 @@ import mpicbg.trakem2.transform.*;
 
 project1 = null;
 project2 = null;
-scale = 4.0f;
+scale = 8.0f;
 
 boolean setup()
 {

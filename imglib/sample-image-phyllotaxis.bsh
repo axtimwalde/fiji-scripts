@@ -21,6 +21,7 @@ samples = "{ ";
 double phi = 0;
 double r = 0;
 int sample = 0;
+int j = 0;
 for ( int i = 0; i < n; ++i )
 {
 	double cos = Math.cos( phi ) * r + tx;
@@ -29,6 +30,9 @@ for ( int i = 0; i < n; ++i )
 	int x = ( int )Math.round( cos );
 	int y = ( int )Math.round( sin );
 	
+	if ( x < 0 || x > ip.getWidth() - 1 || y < 0 || y > ip.getHeight() )
+		continue;
+		
 	sample = ip.getPixel( x, y );
 			
 	if ( i != 0 )

@@ -1,0 +1,35 @@
+import ini.trakem2.display.*;
+
+class PatchIntensityRange
+{
+	final public Patch patch;
+	final public double a, min, max;
+	
+	PatchIntensityRange( Patch patch )
+	{
+		this.patch = patch;
+		a = patch.getMax() - patch.getMin();
+		ip = patch.getImageProcessor();
+		ip.resetMinAndMax();
+		min = ( ip.getMin() - p.getMin() ) / a;
+		max = ( ip.getMax() - p.getMin() ) / a;
+		ip.setMinAndMax( p.getMin(), p.getMax() );
+	}
+}
+
+layer = Display.getFront().getLayer();
+patches = layer.getDisplayables( Patch.class );
+
+patchIntensityRanges = new ArrayList();
+min = Double.MAX_VALUE;
+max = -Double.MAX_VALUE;
+for ( patch : patches )
+{
+	pir = new PatchIntensityRange( patch );
+	if ( pir.min < min )
+		min = pir.min;
+	if ( pir.max > max )
+		max = pir.max;
+	patchIntensityRanges.add( pir );
+}
+
