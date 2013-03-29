@@ -1,0 +1,83 @@
+/**
+ * Open, modify, show, and save a PNG image with an alpha
+ * channel.  This script's purpose is to demontrate how this
+ * can be done and where ImageJ needs to be bypassed.  For
+ * real data processing, I suggest to transfer it into a
+ * Java plugin as single pixel processing is prohibitively
+ * slow from Beanshell.
+ * 
+ * @author Stephan Saalfeld
+ */
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+
+/* name of the png file */
+path = "/path/to/example.png";
+
+/* open the file in to a ColorProcessor */
+cp = new ColorProcessor(ImageIO.read(new File(path)));
+cpPixels = cp.getPixels();
+w = cp.getWidth();
+h = cp.getHeight();
+
+/* split ARGB channels into individual ByteProcessors */
+bpAlpha = new ByteProcessor(w, h);
+bpAlphaPixels = bpAlpha.getPixels();
+bpRed = new ByteProcessor(w, h);
+bpRedPixels = bpRed.getPixels();
+bpGreen = new ByteProcessor(w, h);
+bpGreenPixels = bpGreen.getPixels();
+bpBlue = new ByteProcessor(w, h);
+bpBluePixels = bpBlue.getPixels();
+for (i = 0; i < cpPixels.length; ++i) {
+	bpAlphaPixels[i] = (byte)(cpPixels[i] >> 24);
+	bpRedPixels[i] = (byte)(cpPixels[i] >> 16);
+	bpGreenPixels[i] = (byte)(cpPixels[i] >> 8);
+	bpBluePixels[i] = (byte)cpPixels[i];
+}
+
+/* combine individual channels into a composite image and show */
+stack = new ImageStack(w, h);
+stack.addSlice("red", bpRed);
+stack.addSlice("green", bpGreen);
+stack.addSlice("blue", bpBlue);
+stack.addSlice("alpha", bpAlpha);
+
+imp = new ImagePlus("RGBA-" + path, stack);
+imp.setDimensions(4, 1, 1);
+imp.setOpenAsHyperStack(true);
+cimp = new CompositeImage(imp);
+cimp.setMode(CompositeImage.GRAYSCALE);
+cimp.show();
+
+/* copy the the alpha channel and punch a hole into the copy */
+bpAlphaCopy = bpAlpha.duplicate();
+bpAlphaCopyPixels = bpAlphaCopy.getPixels();
+r = Math.min(w, h) / 4;
+roi = new OvalRoi(w / 2 - r, h / 2 - r, 2 * r, 2 * r);
+bpAlphaCopy.setValue(0);
+bpAlphaCopy.fill(roi);
+
+/* combine alpha channel copy and color channels into an ARGB raster */
+cp2Pixels = new int[w * h];
+for (i = 0; i < cp2Pixels.length; ++i) {
+	cp2Pixels[i] =
+		( ( bpAlphaCopyPixels[i] & 0xff ) << 24 ) |
+		( ( bpRedPixels[i] & 0xff ) << 16 ) |
+		( ( bpGreenPixels[i] & 0xff ) << 8 ) |
+		( bpBluePixels[i] & 0xff );
+}
+cp2Image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+raster = cp2Image.getRaster();
+raster.setDataElements(0, 0, w, h, cp2Pixels);
+
+/* show the modified image (alpha is ignored by ImageJ) */
+cp2 = new ColorProcessor(cp2Image);
+imp2 = new ImagePlus("ARGB-modified-" + path, cp2);
+imp2.show();
+
+/* save the modified image (alpha correct) */
+ImageIO.write(
+	cp2Image,
+	"png",
+	new File(path + "-modified.png"));
