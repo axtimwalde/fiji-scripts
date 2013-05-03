@@ -1,6 +1,6 @@
 import java.util.*;
 
-int k = 0; 
+int k = 0;
 HashMap images = new HashMap(); 
 void makeAverage( average, weightedParts) { 
   weights = new ArrayList(weightedParts.keySet()); 
