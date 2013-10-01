@@ -1,0 +1,18 @@
+import java.awt.geom.AffineTransform;
+layers = Display.getFront().getLayerSet().getLayers();
+firstLayer = 3;
+lastLayer = 15;
+for (i = firstLayer; i <= lastLayer; ++i) {
+  layer = layers.get(i - 1);
+  patches = layer.getDisplayables(Patch.class);
+  for (patch : patches) {
+    at = patch.getAffineTransform();
+    box = getCoordinateTransformBoundingBox();
+    at2 = new AffineTransform(at);
+    at2.translate(-box.x, -box.y);
+    ct = new mpicbg.trakem2.transform.AffineModel2D();
+    ct.set(at2);
+    patch.setAffineTransform(new AffineTransform());
+    patch.appendCoordinateTransform(ct);
+  }
+}
