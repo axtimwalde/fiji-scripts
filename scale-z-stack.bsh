@@ -1,0 +1,88 @@
+/**
+ * Compress a stack by averaging ranges of slices.  Averaging
+ * minimizes error accumulation by a pyramid of equal-n sums.
+ * 
+ * Export is 8-bit grayscale.
+ * 
+ * Doesn't work for RGB or indexed color.
+ * 
+ * @author Stephan Saalfeld <saalfeld@mpi-cbg.de>
+ */
+import java.util.*;
+
+/* number of slices to be averaged into one */
+step = 10;
+
+void makeAverage(average, weightedParts) { 
+  weights = new ArrayList(weightedParts.keySet()); 
+  Collections.sort(weights); 
+  int s = 0; 
+  for (int w : weights) { 
+    s += w; 
+    average.multiply(1.0-(double)w/s); 
+    fp = weightedParts.get(w).duplicate(); 
+    fp.multiply((double)w/s);
+    average.copyBits(fp,0,0,Blitter.ADD); 
+  } 
+}
+
+ImageProcessor averageRange(imp, first, length) {
+	stack = imp.getStack();
+	images = new HashMap();
+	for (int i = first; i < first + length; ++i) {
+  		a = imp.getType() == ImagePlus.GRAY32 ?
+      			stack.getProcessor(++i).duplicate() :
+      			stack.getProcessor(++i).convertToFloat();
+  		int w = 1;
+  		b = images.remove(w);
+  		while (b != null) {
+    			w *= 2;
+			a.copyBits(b, 0, 0, Blitter.ADD);
+			a.multiply(0.5);
+			b = images.remove(w);
+		}
+		images.put(w, a);
+	}
+	ip = new FloatProcessor(imp.getWidth(), imp.getHeight());
+	makeAverage(ip, images);
+	switch (imp.getType()) {
+	case ImagePlus.GRAY16:
+		ip = ip.convertToShort(false);
+		break;
+	case ImagePlus.GRAY8:
+	case ImagePlus.COLOR_256:
+		ip = ip.convertToByte(false);
+		break;
+	case ImagePlus.COLOR_RGB:
+		ip = ip.convertToRGB();
+		break;
+	}
+	return ip;
+}
+
+
+imp = IJ.getImage();
+min = imp.getProcessor().getMin();
+max = imp.getProcessor().getMax();
+stack = imp.getStack(); 
+w = imp.getWidth();
+h = imp.getHeight();
+stackScaled = new ImageStack(w, h);
+impScaled;
+
+for (int i = 0; i < stack.getSize(); i += step) {
+	ip = averageRange(imp, i, step);
+	ip.setMinAndMax(min, max);
+	ip = ip.convertToByte(true);
+	stackScaled.addSlice(ip);
+	IJ.showProgress(i, stack.getSize());
+	if (stackScaled.getSize() == 1) {
+		impScaled = new ImagePlus(imp.getTitle() + "scaled", stackScaled);
+		impScaled.show();
+	}
+	else
+	{
+		impScaled.setStack(stackScaled);
+		impScaled.updateAndDraw();
+	}
+}
