@@ -7,7 +7,7 @@ for (i = firstLayer; i <= lastLayer; ++i) {
   patches = layer.getDisplayables(Patch.class);
   for (patch : patches) {
     at = patch.getAffineTransform();
-    box = getCoordinateTransformBoundingBox();
+    box = patch.getCoordinateTransformBoundingBox();
     at2 = new AffineTransform(at);
     at2.translate(-box.x, -box.y);
     ct = new mpicbg.trakem2.transform.AffineModel2D();
