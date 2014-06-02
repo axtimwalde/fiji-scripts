@@ -29,7 +29,7 @@ void makeAverage(average, weightedParts) {
 ImageProcessor averageRange(imp, first, length) {
 	stack = imp.getStack();
 	images = new HashMap();
-	for (int i = first; i < first + length; ++i) {
+	for (int i = first; i < first + length; /* i incremented inside loop */) {
   		a = imp.getType() == ImagePlus.GRAY32 ?
       			stack.getProcessor(++i).duplicate() :
       			stack.getProcessor(++i).convertToFloat();
