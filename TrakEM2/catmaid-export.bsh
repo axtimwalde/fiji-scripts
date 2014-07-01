@@ -10,21 +10,24 @@ import mpicbg.ij.util.*;
 import mpicbg.models.Model;
 
 firstLayer = 0;
-lastLayer = 2;
+lastLayer = 3;
 
-tileWidth = 512;
-tileHeight = 512;
+tileWidth = 256;
+tileHeight = 256;
 
 emptyImage = new ImagePlus("",new ByteProcessor(tileWidth,tileHeight));
 
 jpegQuality = 85;
 
-path = "/home/saalfeld/tmp/catmaid-export/";
+path = "/data/saalfeld/catmaid/fly-test/";
 
 front = Display.getFront();
+layerSet = front.getLayerSet();
+layers = layerSet.getLayers();
 
-layers = front.getLayerSet().getLayers();
 roi = front.getRoi();
+if (roi == null)
+	roi = new Roi(0, 0, layerSet.getLayerWidth(), layerSet.getLayerHeight());
 left = roi.getBounds().x;
 top = roi.getBounds().y;
 w = roi.getBounds().width;
