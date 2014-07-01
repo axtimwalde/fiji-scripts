@@ -1,0 +1,71 @@
+w = 1987;
+h = 460 * 2;
+d = 1441;
+
+tileWidth = 256;
+tileHeight = 256;
+
+jpegQuality = 85;
+
+emptyImage = new ImagePlus("",new ByteProcessor(tileWidth,tileHeight));
+
+path = "/home/saalfeld/tmp/catmaid/export-test/fib/aligned/xz/";
+
+ImagePlus open(path)
+{
+	file = new File(path);
+	if (file.exists())
+		return new ImagePlus(path);
+	else
+		return emptyImage;
+}
+
+for (int l = 0; l < d; ++l) {
+	dirPath = path + l + "/";
+	IJ.log( dirPath );
+	for (
+		int w1 = (int)Math.ceil(w / 2.0), h1 = (int)Math.ceil(h / 2.0), s = 1;
+		w1 > tileWidth && h1 > tileHeight;
+		w1 = (int)Math.ceil(w1 / 2.0), h1 = (int)Math.ceil(h1 / 2.0), ++s) {
+		IJ.log(w1 + " " + h1);
+		for (y = 0; y < h1; y += tileHeight) {
+			yt = y / tileHeight;
+			for (x = 0; x < w1; x += tileWidth) {
+				xt = x / tileWidth;
+				imp1 = open(
+					dirPath +
+					(2 * yt) + "_" +
+					(2 * xt) + "_" +
+					(s - 1) + ".jpg");
+				imp2 = open(
+					dirPath +
+					(2 * yt) + "_" +
+					(2 * xt + 1) + "_" +
+					(s - 1) + ".jpg");
+				imp3 = open(
+					dirPath +
+					(2 * yt + 1) + "_" +
+					(2 * xt) + "_" +
+					(s - 1) + ".jpg");
+				imp4 = open(
+					dirPath +
+					(2 * yt + 1) + "_" +
+					(2 * xt + 1) + "_" +
+					(s - 1) + ".jpg");
+
+				ip4 = new ByteProcessor(tileWidth * 2, tileHeight * 2);
+				ip4.copyBits(imp1.getProcessor(), 0, 0, Blitter.COPY);
+				ip4.copyBits(imp2.getProcessor(), tileWidth, 0, Blitter.COPY);
+				ip4.copyBits(imp3.getProcessor(), 0, tileHeight, Blitter.COPY);
+				ip4.copyBits(imp4.getProcessor(), tileWidth, tileHeight, Blitter.COPY);
+
+				ip = mpicbg.trakem2.util.Downsampler.downsampleImageProcessor(ip4);
+				impTile = new ImagePlus("", ip);
+
+				fileSaver = new FileSaver(impTile);
+				fileSaver.setJpegQuality(jpegQuality);
+				fileSaver.saveAsJpeg(dirPath + yt + "_" + xt + "_" + s + ".jpg");
+			}
+		}
+	}
+}

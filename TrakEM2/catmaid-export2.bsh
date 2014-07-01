@@ -1,0 +1,166 @@
+/**
+ * Export tiles for CATMAID.
+ *
+ * @author Stephan Saalfeld <saalfeld@mpi-cbg.de>
+ */
+
+import ini.trakem2.display.*;
+import mpicbg.trakem2.transform.*;
+import mpicbg.ij.util.*;
+import mpicbg.models.Model;
+
+firstLayer = 0;
+lastLayer = 459;
+
+tileWidth = 256;
+tileHeight = 256;
+
+emptyImage = new ImagePlus("",new ByteProcessor(tileWidth,tileHeight));
+
+jpegQuality = 85;
+
+path = "/home/saalfeld/tmp/catmaid/export-test/fib/aligned/xy/";
+
+front = Display.getFront();
+
+layers = front.getLayerSet().getLayers();
+roi = front.getRoi();
+left = roi.getBounds().x;
+top = roi.getBounds().y;
+w = roi.getBounds().width;
+h = roi.getBounds().height;
+
+ImagePlus openAndDelete(path)
+{
+	file = new File(path);
+	if ( file.exists() )
+	{
+		imp = new ImagePlus( path );
+		file.delete();
+		return imp;
+	}	
+	else
+		return emptyImage;
+}
+
+emptySections = new ArrayList();
+
+for ( int l = firstLayer; l <= lastLayer; ++l )
+{
+	l1 = l - firstLayer;
+	layer = layers.get( l );
+	if ( layer.getDisplayables( Patch.class ).size() == 0 )
+	{
+		IJ.log( "Section " + l + " empty" );
+		emptySections.add( l );
+		continue;
+	}
+	
+	dirPath = path + l1;
+	dir = new File( dirPath );
+	if ( !dir.exists() )
+		dir.mkdirs();
+
+	/* level 0 tiles */
+	for ( y = 0; y < h; y += tileHeight )
+	{
+		for ( x = 0; x < w; x += tileWidth )
+		{
+			box = new Rectangle( x + left, y + top, tileWidth, tileHeight );
+			
+			impTile = layer.getProject().getLoader().getFlatImage(
+				layer,
+				box,
+				1.0,
+				-1,
+				ImagePlus.GRAY8,
+				Patch.class,
+				true );
+
+			fileSaver = new FileSaver(impTile);
+			fileSaver.setJpegQuality(jpegQuality);
+			fileSaver.saveAsJpeg(dirPath + "/" + (y / tileHeight) + "_" + (x / tileWidth) + "_0.jpg");
+			fileSaver.saveAsTiff(dirPath + "/" + (y / tileHeight) + "_" + (x / tileWidth) + "_0.tif");
+		}
+	}
+
+	/* level [1,n] tiles */
+	for (
+		int w1 = ( int )Math.ceil( w / 2.0 ), h1 = ( int )Math.ceil( h / 2.0 ), s = 1;
+		w1 > tileWidth && h1 > tileHeight;
+		w1 = ( int )Math.ceil( w1 / 2.0 ), h1 = ( int )Math.ceil( h1 / 2.0 ), ++s )
+	{
+		IJ.log( w1 + " " + h1 );
+		for ( y = 0; y < h1; y += tileHeight )
+		{
+			yt = y / tileHeight;
+			for ( x = 0; x < w1; x += tileWidth )
+			{
+				xt = x / tileWidth;
+				imp1 = openAndDelete(
+					dirPath + "/" +
+					(2 * yt) + "_" +
+					(2 * xt) + "_" +
+					(s - 1) + ".tif");
+				imp2 = openAndDelete(
+					dirPath + "/" +
+					(2 * yt) + "_" +
+					(2 * xt + 1) + "_" +
+					(s - 1) + ".tif");
+				imp3 = openAndDelete(
+					dirPath + "/" +
+					(2 * yt + 1) + "_" +
+					(2 * xt) + "_" +
+					(s - 1) + ".tif");
+				imp4 = openAndDelete(
+					dirPath + "/" +
+					(2 * yt + 1) + "_" +
+					(2 * xt + 1) + "_" +
+					(s - 1) + ".tif");
+
+				ip4 = new ByteProcessor(tileWidth * 2, tileHeight * 2);
+				ip4.copyBits(imp1.getProcessor(), 0, 0, Blitter.COPY);
+				ip4.copyBits(imp2.getProcessor(), tileWidth, 0, Blitter.COPY);
+				ip4.copyBits(imp3.getProcessor(), 0, tileHeight, Blitter.COPY);
+				ip4.copyBits(imp4.getProcessor(), tileWidth, tileHeight, Blitter.COPY);
+
+				ip = mpicbg.trakem2.util.Downsampler.downsampleImageProcessor(ip4);
+				impTile = new ImagePlus("", ip);
+
+				fileSaver = new FileSaver( impTile );
+				fileSaver.setJpegQuality( jpegQuality );
+				fileSaver.saveAsJpeg( dirPath + "/" + yt + "_" + xt + "_" + s + ".jpg" );
+				if ( Math.ceil( w1 / 2.0 ) > tileWidth && Math.ceil( h1 / 2.0 ) > tileHeight )
+					fileSaver.saveAsTiff( dirPath + "/" + yt + "_" + xt + "_" + s + ".tif" );
+			}
+		}
+	}
+}
+
+emptySectionsString = "";
+for ( l : emptySections )
+	emptySectionsString += ( l + ", " );
+
+emptySectionsString = emptySectionsString.substring( 0, Math.max( 0, emptySectionsString.length() - 2 ) );
+
+calibration = front.getLayerSet().getCalibration();
+box = roi.getBounds();
+fos = new FileOutputStream( path + "metadata.json" );
+out = new OutputStreamWriter( fos, "UTF-8" );
+text =
+	"{ volume_width_px : " + box.width + ",\n" +
+	"  volume_height_px : " + box.height + ",\n" +
+	"  volume_sections : " + ( lastLayer - firstLayer + 1 ) + ",\n" +
+	"  extension : \".jpg\",\n" +
+	"  resolution_x : " + calibration.pixelWidth + ",\n" +
+	"  resolution_y : " + calibration.pixelHeight + ",\n" +
+	"  resolution_z : " + calibration.pixelDepth + ",\n" +
+	"  units : \"" + calibration.getXUnit() + "\"" + ",\n" +
+	"  offset_x_px : " + box.x + ",\n" + 
+	"  offset_y_px : " + box.y + ",\n" +
+	"  offset_z_px : " + firstLayer + ",\n" +
+	"  missing_layers : [" + emptySectionsString + "] }";
+out.write( text, 0, text.length() );
+out.close();
+
+

@@ -1,0 +1,56 @@
+
+title = "cam3";
+fileName = "/groups/saalfeld/home/saalfelds/" + title + ".map";
+
+spacingLevel = 6;
+dx = 1 << spacingLevel;
+
+one = Float.floatToIntBits(1.0f);
+
+p = Display.getFront().getActive();
+
+ct = p.getCoordinateTransform();
+
+w = p.getOWidth();
+h = p.getOHeight();
+
+nx = (int)Math.ceil(w / dx);
+ny = (int)Math.ceil(h / dx);
+
+headerStr = "M1\n6\n";
+headerStr += (nx + 1) + " " + (ny + 1) + "\n";
+headerStr += "0 0\n";
+headerStr += title + " trakem2\n";
+
+byte[] header = headerStr.getBytes();
+byte[] map = new byte[header.length + 3 * 4 * (nx + 1) * (ny + 1)];
+System.arraycopy(header, 0, map, 0, header.length);
+
+for (i = header.length, y = 0; y <= ny; ++y) {
+	for (x = 0; x <= nx; ++x) {
+		float[] a = new float[]{x * dx, y * dx};
+		ct.applyInPlace(a);
+		int a0 = Float.floatToIntBits(a[0] / dx);
+		int a1 = Float.floatToIntBits(a[1] / dx);
+
+		map[i++] = (byte)a0;
+		map[i++] = (byte)(a0 >> 8);
+		map[i++] = (byte)(a0 >> 16);
+		map[i++] = (byte)(a0 >> 24);
+		
+		map[i++] = (byte)a1;
+		map[i++] = (byte)(a1 >> 8);
+		map[i++] = (byte)(a1 >> 16);
+		map[i++] = (byte)(a1 >> 24);
+		
+		map[i++] = (byte)one;
+		map[i++] = (byte)(one >> 8);
+		map[i++] = (byte)(one >> 16);
+		map[i++] = (byte)(one >> 24);
+	}
+}
+
+java.io.FileOutputStream file = new FileOutputStream(fileName, false);
+file.write(map);
+file.close();
+IJ.log("Saved " + fileName + ".");

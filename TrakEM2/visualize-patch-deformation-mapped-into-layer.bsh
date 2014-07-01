@@ -88,7 +88,7 @@ orientation = new float[ 6 ];
 
 for ( patch : patches )
 {
-	ct = patch.getCoordinateTransform();
+	ctl = patch.getFullCoordinateTransform();
 	
 	/* append patch affine ... grrrr! */
 	box = patch.getCoordinateTransformBoundingBox();
@@ -97,10 +97,6 @@ for ( patch : patches )
 	affine = new AffineModel2D();
 	affine.set( at );
 	affine.toArray( orientation );
-	
-	ctl = new CoordinateTransformList();
-	ctl.add( ct );
-	ctl.add( affine );
 	
 	t = sampleModel( ctl, RigidModel2D.class, patch.getWidth(), patch.getHeight() );
 	
