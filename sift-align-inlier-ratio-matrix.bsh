@@ -1,0 +1,144 @@
+import ij.IJ;
+import ij.ImagePlus;
+import ij.ImageStack;
+import ij.process.FloatProcessor;
+
+import java.lang.Thread;
+import java.lang.Runnable;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import mpicbg.ij.FeatureTransform;
+import mpicbg.ij.SIFT;
+import mpicbg.imagefeatures.Feature;
+import mpicbg.imagefeatures.FloatArray2DSIFT;
+import mpicbg.models.AffineModel2D;
+import mpicbg.models.NoninvertibleModelException;
+import mpicbg.models.NotEnoughDataPointsException;
+import mpicbg.models.TranslationModel2D;
+
+
+/* custom parameters */
+range = 50;
+
+FloatArray2DSIFT.Param p = new FloatArray2DSIFT.Param();
+
+p.fdSize = 4;
+p.maxOctaveSize = 1024;
+p.minOctaveSize = 1000;
+maxSteps = 3;
+
+float rod = 0.92f;
+float maxEpsilon = 50f;
+float minInlierRatio = 0.05f;
+int minNumInliers = 10;
+
+/* transformation models  */
+AffineModel2D affine = new AffineModel2D();
+TranslationModel2D translation = new TranslationModel2D();
+
+/* extract features */
+ArrayList extract(ijSIFT, ip) {
+	ArrayList features = new ArrayList();	
+	ijSIFT.extractFeatures(ip, features);
+	return features;
+}	
+
+/* match */
+double match(model, features1, features2) {
+	ArrayList candidates = new ArrayList();
+	ArrayList inliers = new ArrayList();
+	double inlierRatio = 0.0;
+		
+	if (features1.size() > 0 && features2.size() > 0) {
+		FeatureTransform.matchFeatures(features1, features2, candidates, rod);
+	
+		boolean modelFound = false;
+		try {
+			modelFound = model.filterRansac(
+				candidates,
+				inliers,
+				1000,
+				maxEpsilon,
+				minInlierRatio,
+				minNumInliers,
+				3);
+		}
+		catch (NotEnoughDataPointsException e) {
+			modelFound = false;
+		}
+	
+		if (modelFound)
+			inlierRatio = (double)inliers.size() / candidates.size();
+	}
+	return inlierRatio;
+}
+
+/* main */
+/* images */
+imp = IJ.getImage();
+final ImageStack stack = imp.getStack();
+final int n = stack.getSize();
+
+/* extract features */
+ArrayList[] featuresList = new ArrayList[n];
+final AtomicInteger i = new AtomicInteger(0);
+ArrayList threads = new ArrayList();
+for (int t = 0; t < Runtime.getRuntime().availableProcessors(); ++t) {
+	Thread thread = new Thread(
+		new Runnable(){
+			public void run(){
+				FloatArray2DSIFT sift = new FloatArray2DSIFT(p);
+				SIFT ijSIFT = new SIFT(sift);
+				for (int k = i.getAndIncrement(); k < n; k = i.getAndIncrement()) {
+					ArrayList features = extract(ijSIFT, stack.getProcessor(k + 1));
+					IJ.log( k + ": " + features.size() + " features extracted" );
+					featuresList[k] = features;
+				}
+			}
+		}
+	);
+	threads.add(thread);
+	thread.start();
+}
+for (Thread t : threads)
+	t.join();
+
+/* initialize matrix */
+final FloatProcessor matrix = new FloatProcessor(n, n);
+matrix.add(Double.NaN);
+for (int i = 0; i < n; ++i) {
+	if (featuresList[i].size() > 0)
+		matrix.setf(i, i, 1.0f);
+	else
+		matrix.setf(i, i, 0.0f);
+}
+matrix.setMinAndMax(0, 1);
+final ImagePlus impMatrix = new ImagePlus("inlier ratio matrix", matrix);
+impMatrix.show();
+
+/* match */
+for (int i = 0; i < n; ++i) {
+	final int fi = i;
+	final ArrayList f1 = featuresList[fi];
+	final AtomicInteger j = new AtomicInteger(fi + 1);
+	for (int t = 0; t < Runtime.getRuntime().availableProcessors(); ++t) {
+		Thread thread = new Thread(
+			new Runnable(){
+				public void run(){
+					for (int k = j.getAndIncrement(); k < n && k < fi + range; k = j.getAndIncrement()) {
+						ArrayList f2 = featuresList[k];
+						float inlierRatio = (float)match(affine, f1, f2);
+						matrix.setf(fi, k, inlierRatio);
+						matrix.setf(k, fi, inlierRatio);
+						impMatrix.updateAndDraw();
+					}
+				}
+			}
+		);
+		threads.add(thread);
+		thread.start();
+	}
+	for (Thread t : threads)
+		t.join();
+}
