@@ -37,9 +37,13 @@ jpegQuality = 85;
 path = "/home/saalfeld/tmp/catmaid/export-test/fib/aligned/xy/";
 
 front = Display.getFront();
+layerSet = front.getLayerSet();
 
 layers = front.getLayerSet().getLayers();
 roi = front.getRoi();
+if (roi == null) {
+	roi = new Roi(0, 0, layerSet.getLayerWidth(), layerSet.getLayerHeight());
+}
 left = roi.getBounds().x;
 top = roi.getBounds().y;
 w = roi.getBounds().width;
