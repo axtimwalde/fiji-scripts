@@ -2,8 +2,23 @@
  * Export tiles for CATMAID.
  *
  * @author Stephan Saalfeld <saalfeld@mpi-cbg.de>
- */
+*
+* Usage instructions:
+*   - open a project in TrakEM2, regenerate mipmaps
+*   - open the script editor (File/New/Script), select "Beanshell" as language, paste this script in
+*   - select layer range you wish to export (firstLayer and lastLayer)
+*   - select appropriate tileWidth and tileHeight
+*   - select appropriate path
+*   - click "Run"
+*
+*/
 
+import ij.ImagePlus;
+import ij.process.ByteProcessor;
+import ij.gui.Roi;
+import ij.io.FileSaver;
+import ij.IJ;
+import ij.process.Blitter;
 import ini.trakem2.display.*;
 import mpicbg.trakem2.transform.*;
 import mpicbg.ij.util.*;
@@ -17,14 +32,19 @@ tileHeight = 256;
 
 emptyImage = new ImagePlus("",new ByteProcessor(tileWidth,tileHeight));
 
+exportFormat = "png";  // "jpg" or "png"
 jpegQuality = 85;
 
 path = "/home/saalfeld/tmp/catmaid/export-test/fib/aligned/xy/";
 
 front = Display.getFront();
+layerSet = front.getLayerSet();
 
 layers = front.getLayerSet().getLayers();
 roi = front.getRoi();
+if (roi == null) {
+	roi = new Roi(0, 0, layerSet.getLayerWidth(), layerSet.getLayerHeight());
+}
 left = roi.getBounds().x;
 top = roi.getBounds().y;
 w = roi.getBounds().width;
@@ -78,8 +98,14 @@ for ( int l = firstLayer; l <= lastLayer; ++l )
 				true );
 
 			fileSaver = new FileSaver(impTile);
-			fileSaver.setJpegQuality(jpegQuality);
-			fileSaver.saveAsJpeg(dirPath + "/" + (y / tileHeight) + "_" + (x / tileWidth) + "_0.jpg");
+			if (exportFormat == "png") {
+				fileSaver.saveAsPng(dirPath + "/" + (y / tileHeight) + "_" + (x / tileWidth) + "_0.png");
+			} else if (exportFormat == "jpg") {
+				fileSaver.setJpegQuality(jpegQuality);
+				fileSaver.saveAsJpeg(dirPath + "/" + (y / tileHeight) + "_" + (x / tileWidth) + "_0.jpg");
+			} else {
+				IJ.log("ERROR selecting file format.");
+			}
 			fileSaver.saveAsTiff(dirPath + "/" + (y / tileHeight) + "_" + (x / tileWidth) + "_0.tif");
 		}
 	}
@@ -128,8 +154,14 @@ for ( int l = firstLayer; l <= lastLayer; ++l )
 				impTile = new ImagePlus("", ip);
 
 				fileSaver = new FileSaver( impTile );
-				fileSaver.setJpegQuality( jpegQuality );
-				fileSaver.saveAsJpeg( dirPath + "/" + yt + "_" + xt + "_" + s + ".jpg" );
+				if (exportFormat == "png") {
+					fileSaver.saveAsPng( dirPath + "/" + yt + "_" + xt + "_" + s + ".png" );
+				} else if (exportFormat == "jpg") {
+					fileSaver.setJpegQuality( jpegQuality );
+					fileSaver.saveAsJpeg( dirPath + "/" + yt + "_" + xt + "_" + s + ".jpg" );
+				} else {
+					IJ.log("ERROR selecting file format.");
+				}
 				if ( Math.ceil( w1 / 2.0 ) > tileWidth && Math.ceil( h1 / 2.0 ) > tileHeight )
 					fileSaver.saveAsTiff( dirPath + "/" + yt + "_" + xt + "_" + s + ".tif" );
 			}
@@ -151,7 +183,7 @@ text =
 	"{ volume_width_px : " + box.width + ",\n" +
 	"  volume_height_px : " + box.height + ",\n" +
 	"  volume_sections : " + ( lastLayer - firstLayer + 1 ) + ",\n" +
-	"  extension : \".jpg\",\n" +
+	"  extension : \"." + exportFormat + "\",\n" +
 	"  resolution_x : " + calibration.pixelWidth + ",\n" +
 	"  resolution_y : " + calibration.pixelHeight + ",\n" +
 	"  resolution_z : " + calibration.pixelDepth + ",\n" +
