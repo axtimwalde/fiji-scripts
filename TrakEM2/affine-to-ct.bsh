@@ -1,5 +1,8 @@
+import ini.trakem2.display.*;
 import java.awt.geom.AffineTransform;
-for (patch:Display.getFront().getLayerSet().getDisplayables(Patch.class)){
+
+for (patch:Display.getFront().getLayer().getDisplayables(Patch.class)) {
+//for (patch:Display.getFront().getLayerSet().getDisplayables(Patch.class)) {
   affine = patch.getAffineTransform();
   ct = new mpicbg.trakem2.transform.AffineModel2D();
   ct.set(affine);

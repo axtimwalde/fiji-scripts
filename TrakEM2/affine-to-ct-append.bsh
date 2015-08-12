@@ -1,9 +1,13 @@
 import java.awt.geom.AffineTransform;
+import ini.trakem2.display.*;
+import ij.*;
+
 layers = Display.getFront().getLayerSet().getLayers();
-firstLayer = 3;
-lastLayer = 15;
+firstLayer = 6;
+lastLayer = 2116;
 for (i = firstLayer; i <= lastLayer; ++i) {
   layer = layers.get(i - 1);
+  IJ.log("Processing layer " + i + " " + layer.getTitle());
   patches = layer.getDisplayables(Patch.class);
   for (patch : patches) {
     at = patch.getAffineTransform();
