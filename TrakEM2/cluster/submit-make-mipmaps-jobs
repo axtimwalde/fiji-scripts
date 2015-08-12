@@ -1,0 +1,15 @@
+#!/bin/bash
+
+project="${pwd}/${1}"
+n="${2}"
+
+pwd=`pwd`
+mkdir -p $pwd/jobs/log
+cd $pwd/jobs/log
+
+for layer in `seq 0 $(($n-1))`
+do
+	qsub -cwd -l night=true -pe batch 4 "$pwd/jobs/make-mipmap-job-${1}-$layer"
+done
+
+cd $pwd

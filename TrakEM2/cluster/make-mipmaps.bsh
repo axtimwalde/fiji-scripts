@@ -1,0 +1,88 @@
+/**
+ * Call
+ *
+ * xvfb-run -a ./ImageJ-linux64 -Dproject=<project file path> Dlayer=<layer index> -- --no-splash make-mipmaps.bsh
+ *
+ * on the cluster with absolute paths, e.g.
+ *
+ * ${HOME}/bin/xvfb-run -a ${HOME}/packages/Fiji.app/fiji-linux64 \
+ *   -Xms10g -Xmx10g -Dproject=/nobackup/bock/karsh/fly400_v1/FOR_ERIC/Affine-mipmaps.xml \
+ *   -Dlayer=0  -- --no-splash \
+ *   /nobackup/bock/karsh/fly400_v1/FOR_ERIC/make-mipmaps.bsh
+ * 
+ * @author Stephan Saalfeld <saalfeld@mpi-cbg.de>
+ */
+
+import ini.trakem2.ControlWindow;
+import ini.trakem2.Project;
+import ini.trakem2.display.Layer;
+import ini.trakem2.display.Patch;
+import ini.trakem2.utils.Filter;
+import ij.ImagePlus;
+import java.lang.Runtime;
+import java.util.ArrayList;
+import java.util.HashSet;
+
+Project tryOpenProject(path) {
+	Exception f = null;
+	for (int i = 0; i < 10; ++i) {
+		try {
+			project = Project.openFSProject(path, false);
+			if (project != null)
+				return project;
+		}
+		catch (e) {
+			f = e;
+			f.printStackTrace();
+		}
+		System.out.println("Trial " + i + ", failed to open project \"" + path + "\".");
+		Thread.sleep(1000);
+	}
+	if (f == null)
+		return null;
+	else
+		throw f;
+}
+
+Object getPrivateField(name, from) {
+	f = from.getClass().getDeclaredField(name);
+	f.setAccessible(true);
+	return f.get(from);
+}
+
+try {
+	runtime = Runtime.getRuntime();
+	
+	projectPath = System.getProperty("project");
+	layerIndex = Integer.parseInt(System.getProperty("layer"));
+	
+	ControlWindow.setGUIEnabled(false);
+	project = tryOpenProject(projectPath);
+	layerset = project.getRootLayerSet();
+	layerset.setSnapshotsMode(1);
+	layer = layerset.getLayer(layerIndex);
+	
+	/* wait until all mipmaps are generated */
+	futures = new ArrayList();
+	for (p : layer.getDisplayables(Patch.class))
+		futures.add(p.updateMipMaps());
+	for (f : futures)
+		f.get();
+
+	loader = project.getLoader();
+	loader.setChanged(false);
+
+	/* do not delete the freshly generated mipmaps */
+	getPrivateField("touched_mipmaps", loader).clear();
+	getPrivateField("mipmaps_to_remove", loader).clear();
+
+	project.destroy();
+
+}
+catch (e) {
+	e.printStackTrace();
+}
+
+/* shutdown */
+runtime.exit(0);
+

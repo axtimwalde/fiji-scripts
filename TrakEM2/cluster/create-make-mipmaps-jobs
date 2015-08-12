@@ -1,0 +1,18 @@
+#!/bin/bash
+
+pwd=`pwd`
+
+project="${pwd}/${1}"
+n="${2}"
+
+mkdir -p $pwd/jobs
+
+for layer in `seq 0 $(($n-1))`
+do
+	job="$pwd/jobs/make-mipmap-job-${1}-$layer"
+
+	echo "#!/bin/bash" > $job
+	echo "${HOME}/bin/xvfb-run -a ${HOME}/packages/Fiji.app/fiji-linux64 -Xms10g -Xmx10g -Dproject=${project} -Dlayer=${layer} -- --no-splash ${pwd}/make-mipmaps.bsh" >> $job
+	chmod a+x $job
+done
+
