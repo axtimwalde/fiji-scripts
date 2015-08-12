@@ -1,4 +1,6 @@
 import java.awt.geom.*;
+import ij.*;
+import ini.trakem2.display.*;
 
 roi = IJ.getImage().getRoi();
 box = roi.getBounds();
@@ -6,7 +8,7 @@ tx = box.x + box.width / 2;
 ty = box.y + box.height / 2;
 scale = Math.min( 1.0, 1280.0 / box.width );
 
-int l = 458 * 2;
+int l = 372 * 3;
 
 /* Backup affine transforms */
 layer = Display.getFrontLayer();
@@ -39,12 +41,15 @@ try {
 	lid = 1;
 	double pixelScale = 1.0;
 
+	test = new AffineTransform();
+
 	for ( var i = 0; i < l; ++i )
 	{
-		layer = layer.getParent().getLayer( li / 2 );
+//		layer = layer.getParent().getLayer( li / 3 );
+		layer = Display.getFront().getLayer();
 		if ( li == 0 )
 			lid = 1;
-		if ( li == layer.getParent().getLayers().size() * 2 - 1 )
+		if ( li == layer.getParent().getLayers().size() * 3 - 1 )
 			lid = -1;
 		li += lid;
 		
@@ -54,16 +59,20 @@ try {
 		atr = new AffineTransform();
 		att = new AffineTransform();
 
-		double s = 1.0 + a * 0.0063;
+		double s = 1.0 + a * 0.009;
 		pixelScale *= s;
 
 		ats.scale( s, s );
-		atr.rotate( a * 0.01 );
+		atr.rotate( a * 0.0025 );
 		att.translate( tx, ty );
 		atti = att.clone();
 		atti.invert();
+
+		test.preConcatenate(ats);
 		
-		d = Display.getFront().getLayerSet().getDisplayables( Patch.class );
+//		d = Display.getFront().getLayerSet().getDisplayables( Patch.class );
+		d = layer.getDisplayables( Patch.class );
+//		d = new ArrayList();
 		for ( var j = 0; j < d.size(); ++j )
 		{
 			var atd = d.get( j ).getAffineTransform();
@@ -76,8 +85,10 @@ try {
 			d.get( j ).setAffineTransform( atd );
 //			IJ.log( atd.toString() );
 		}
-		IJ.log( i + "" );
-		Display.repaint();
+		IJ.log( i + " " + scale * test.getScaleX() + " " + scale * test.getScaleY() );
+		IJ.log( i + "");
+
+ 		Display.repaint();
 		Thread.sleep( 100 );
 		
 		imp = layer.getProject().getLoader().getFlatImage(
@@ -89,7 +100,7 @@ try {
 				Patch.class,
 				layer.getDisplayables( Patch.class ),
 				true,
-				Color.white );
+				new Color(209, 209, 209) );
 		c = imp.getCalibration();
 		c.pixelWidth = c.pixelHeight = c.pixelWidth / pixelScale;
 		imp.setCalibration( c );
@@ -110,8 +121,8 @@ try {
 			impStack.updateAndDraw();
 		}
 		layer.getParent().addTransformStep( layer );
+	
 	}
-
 } catch (error) {
 	IJ.log(error.toString());
 }
