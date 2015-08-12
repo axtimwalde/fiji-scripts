@@ -64,6 +64,30 @@ Model sampleModel( ct, modelClass, width, height )
 	return model;
 }
 
+/**
+ * Estimate a transformation model between two CoordinateTransforms.
+ * The model maps ct1 into ct2.
+ */
+Model sampleModel2( ct1, ct2, modelClass, width, height )
+{
+	model = modelClass.newInstance();
+	matches = new ArrayList();
+	float scaleX = ( ( float )width - 1.0f ) / 63.0f;
+	float scaleY = ( ( float )height - 1.0f ) / 63.0f;
+	for ( y = 0; y < 64; ++y )
+	{
+		float ys = scaleY * y;
+		for ( x = 0; x < 64; ++x )
+		{
+			float xs = scaleX * x;
+			p = new mpicbg.models.Point( new float[]{ xs, ys } );
+			p.apply( ct );
+			matches.add( new mpicbg.models.PointMatch( p, p ) );
+		}
+	}
+	model.fit( matches );
+	return model;
+}
 
 
 w = 256;
