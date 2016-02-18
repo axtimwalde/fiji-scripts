@@ -1,0 +1,32 @@
+import ij.IJ;
+import ij.ImagePlus;
+import ij.process.ImageProcessor;
+import ij.process.FloatProcessor;
+import ij.process.ShortProcessor;
+import ij.process.Blitter;
+import mpicbg.ij.util.Util;
+import mpicbg.ij.plugin.NormalizeLocalContrast;
+import mpicbg.ij.plugin.RemoveSaturated;
+
+int paddingX = 500;
+int paddingY = 500;
+int brx = 3500;
+int bry = 3500;
+float stds = 3.0f;
+
+try {
+	RemoveSaturated.run(imp.getProcessor(), 0);
+	imp.getProcessor().setMinAndMax(patch.getMin(), patch.getMax());
+	NormalizeLocalContrast.run(imp.getProcessor(), brx, bry, stds, true, true);
+	ImageProcessor ip = new FloatProcessor(imp.getWidth() + 2 * paddingX, imp.getHeight() + 2 * paddingY);
+	Util.fillWithNoise(ip);
+	ip.multiply(patch.getMax() - patch.getMin());
+	ip.add(patch.getMin());
+	ip = ip.convertToShortProcessor(false);
+	ip.setMinAndMax(patch.getMin(), patch.getMax());
+	ip.copyBits(imp.getProcessor(), paddingX, paddingY, Blitter.COPY);
+	imp.setProcessor(imp.getTitle(), ip);
+}
+catch (Exception e) {
+	IJ.log(e.toString());
+}
