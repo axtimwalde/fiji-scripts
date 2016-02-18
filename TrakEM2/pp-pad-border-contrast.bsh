@@ -1,0 +1,49 @@
+/**
+ * Crops 1px off all sides of the patch, normalizes its contrast, and then pads
+ * with border extended pixels.  The resulting patch's size is
+ * original size + 2 * padding, the values used for padding are from the second
+ * and second to last row/ column, the size of the padding area is
+ * padding + 1, you will see padding + 2 pixels with repeated values.
+ */
+import ij.IJ;
+import ij.ImagePlus;
+import ij.process.ImageProcessor;
+import ij.process.FloatProcessor;
+import ij.process.ShortProcessor;
+import ij.process.Blitter;
+import mpicbg.ij.plugin.NormalizeLocalContrast;
+import mpicbg.ij.plugin.RemoveSaturated;
+import net.imglib2.*;
+import net.imglib2.view.Views;
+import net.imglib2.img.imageplus.*;
+import net.imglib2.img.display.imagej.ImageJFunctions;
+
+int paddingX = 500;
+int paddingY = 500;
+int brx = 3500;
+int bry = 3500;
+float stds = 3.0f;
+
+try {
+	RemoveSaturated.run(imp.getProcessor(), 0);
+	imp.getProcessor().setMinAndMax(patch.getMin(), patch.getMax());
+	NormalizeLocalContrast.run(imp.getProcessor(), brx, bry, stds, true, true);
+	img = ImagePlusImgs.from(imp);
+	cropped = Views.offsetInterval(
+			img,
+			new long[]{1, 1},
+			new long[]{img.dimension(0) - 2, img.dimension(1) - 2});
+	extended = Views.extendBorder(cropped);
+	shifted = Views.offsetInterval(
+			extended,
+			new long[]{-paddingX - 1, -paddingY - 1},
+			new long[]{img.dimension(0) + 2 * paddingX, img.dimension(1) + 2 * paddingY});
+	/* copy by hooking up on ImageJFunctions */
+	wrapped = ImageJFunctions.wrapUnsignedByte(shifted, "");
+	ip = wrapped.getProcessor();
+	ip.setMinAndMax(patch.getMin(), patch.getMax());
+	imp.setProcessor(imp.getTitle(), ip);
+}
+catch (Exception e) {
+	IJ.log(e.toString());
+}
